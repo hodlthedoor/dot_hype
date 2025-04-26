@@ -1,0 +1,15 @@
+{
+  "version": "1.0",
+  "rules": {
+    "no_unauthorized_actions": true,
+    "require_explicit_approval": true,
+    "strict_mode": {
+      "enabled": true,
+      "message": "This project requires explicit approval for all actions. Please only perform tasks that have been specifically requested."
+    }
+  },
+  "project": {
+    "name": "dotHYPE",
+    "description": "A native naming service for the Hyperliquid ecosystem"
+  }
+}
