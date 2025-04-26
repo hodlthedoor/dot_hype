@@ -300,4 +300,156 @@ contract DotHypeRegistryTest is Test {
         string memory expectedURI = string(abi.encodePacked(newBaseURI, name, ".json"));
         assertEq(registry.tokenURI(tokenId), expectedURI);
     }
+    
+    function testRenewDuringGracePeriod() public {
+        string memory name = "test";
+        uint256 duration = 30 days;
+        
+        // Register a name
+        vm.prank(controller);
+        (uint256 tokenId, uint256 initialExpiry) = registry.register(
+            name,
+            user1,
+            duration
+        );
+        
+        // Move time forward to after expiry but before grace period ends
+        vm.warp(initialExpiry + 10 days);
+        
+        // Verify domain is expired
+        assertTrue(block.timestamp > initialExpiry);
+        // Verify still in grace period
+        assertTrue(block.timestamp < initialExpiry + registry.GRACE_PERIOD());
+        // Verify not available yet during grace period
+        assertFalse(registry.available(name));
+        
+        // Renew the name during grace period
+        vm.prank(controller);
+        uint256 newExpiry = registry.renew(
+            tokenId,
+            duration
+        );
+        
+        // Verify the renewal starts from current time, not from old expiry
+        assertEq(newExpiry, block.timestamp + duration);
+        assertEq(registry.expiryOf(tokenId), newExpiry);
+    }
+    
+    function testExpiredDomainCannotBeTransferred() public {
+        string memory name = "test";
+        uint256 duration = 30 days;
+        
+        // Register a name
+        vm.prank(controller);
+        (uint256 tokenId, uint256 initialExpiry) = registry.register(
+            name,
+            user1,
+            duration
+        );
+        
+        // Move time forward to after expiry
+        vm.warp(initialExpiry + 1);
+        
+        // Verify domain is expired
+        assertTrue(block.timestamp > initialExpiry);
+        
+        // Try to transfer the expired domain
+        vm.prank(user1);
+        vm.expectRevert(); // Any revert is fine, but ERC721 likely reverts with "ERC721: caller is not token owner or approved"
+        registry.transferFrom(user1, user2, tokenId);
+    }
+    
+    function testDomainInGracePeriodCannotBeTransferred() public {
+        string memory name = "test";
+        uint256 duration = 30 days;
+        
+        // Register a name
+        vm.prank(controller);
+        (uint256 tokenId, uint256 initialExpiry) = registry.register(
+            name,
+            user1,
+            duration
+        );
+        
+        // Move time forward to within grace period
+        vm.warp(initialExpiry + 15 days);
+        
+        // Verify domain is expired
+        assertTrue(block.timestamp > initialExpiry);
+        // Verify still in grace period
+        assertTrue(block.timestamp < initialExpiry + registry.GRACE_PERIOD());
+        
+        // Try to transfer the domain in grace period
+        vm.prank(user1);
+        vm.expectRevert(); // Any revert is fine, but ERC721 likely reverts with "ERC721: caller is not token owner or approved"
+        registry.transferFrom(user1, user2, tokenId);
+    }
+    
+    function testRegisterExpiredDomainAfterGracePeriod() public {
+        string memory name = "test";
+        uint256 duration = 30 days;
+        
+        // Register a name
+        vm.prank(controller);
+        (uint256 tokenId, uint256 initialExpiry) = registry.register(
+            name,
+            user1,
+            duration
+        );
+        
+        // Move time forward to after grace period
+        vm.warp(initialExpiry + registry.GRACE_PERIOD() + 1);
+        
+        // Verify domain is expired
+        assertTrue(block.timestamp > initialExpiry);
+        // Verify grace period is over
+        assertTrue(block.timestamp > initialExpiry + registry.GRACE_PERIOD());
+        // Verify now available for registration
+        assertTrue(registry.available(name));
+        
+        // Register the expired domain from a new address
+        vm.prank(controller);
+        (uint256 newTokenId, uint256 newExpiry) = registry.register(
+            name,
+            user2,
+            duration
+        );
+        
+        // Verify registration worked
+        assertEq(newTokenId, tokenId); // Same tokenId for same name
+        assertEq(registry.ownerOf(newTokenId), user2); // New owner
+        assertEq(registry.expiryOf(newTokenId), newExpiry); // New expiry
+    }
+    
+    function testRegisterExpiredDomainDuringGracePeriod() public {
+        string memory name = "test";
+        uint256 duration = 30 days;
+        
+        // Register a name
+        vm.prank(controller);
+        (uint256 tokenId, uint256 initialExpiry) = registry.register(
+            name,
+            user1,
+            duration
+        );
+        
+        // Move time forward to within grace period
+        vm.warp(initialExpiry + 15 days);
+        
+        // Verify domain is expired
+        assertTrue(block.timestamp > initialExpiry);
+        // Verify still in grace period
+        assertTrue(block.timestamp < initialExpiry + registry.GRACE_PERIOD());
+        // Verify not available during grace period
+        assertFalse(registry.available(name));
+        
+        // Try to register the domain during grace period
+        vm.prank(controller);
+        vm.expectRevert(abi.encodeWithSelector(DotHypeRegistry.NameNotAvailable.selector, name));
+        registry.register(
+            name,
+            user2,
+            duration
+        );
+    }
 } 

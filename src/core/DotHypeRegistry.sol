@@ -22,6 +22,7 @@ contract DotHypeRegistry is ERC721, Ownable, IDotHypeRegistry {
     error NameExpired(string name, uint256 expiry);
     error NotAuthorized(address caller, uint256 tokenId);
     error InvalidLength(string name);
+    error DomainExpired(uint256 tokenId, uint256 expiry);
 
     // Name registration data
     struct NameRecord {
@@ -87,6 +88,13 @@ contract DotHypeRegistry is ERC721, Ownable, IDotHypeRegistry {
         // Calculate tokenId from name
         tokenId = nameToTokenId(name);
         expiry = block.timestamp + duration;
+        
+        // If the token exists but is expired beyond grace period, we need to burn it first
+        if (_exists(tokenId) && block.timestamp > _records[tokenId].expiry + GRACE_PERIOD) {
+            // Since only the owner can burn, we need to do a forced burn
+            // Note: This uses internal ERC721 functions to handle it properly
+            _update(address(0), tokenId, _ownerOf(tokenId));
+        }
         
         // Store name record
         _records[tokenId] = NameRecord({
@@ -241,5 +249,41 @@ contract DotHypeRegistry is ERC721, Ownable, IDotHypeRegistry {
      */
     function _exists(uint256 tokenId) internal view returns (bool) {
         return _ownerOf(tokenId) != address(0);
+    }
+    
+    /**
+     * @dev Check if a domain is active (not expired)
+     * @param tokenId The token ID to check
+     * @return True if the domain is active
+     */
+    function isActive(uint256 tokenId) public view returns (bool) {
+        if (!_exists(tokenId)) {
+            return false;
+        }
+        
+        return block.timestamp <= _records[tokenId].expiry;
+    }
+    
+    /**
+     * @dev Override _update to prevent transfers of expired domains
+     */
+    function _update(address to, uint256 tokenId, address auth) internal override returns (address) {
+        // For minting, allow it to proceed
+        if (auth == address(0)) {
+            return super._update(to, tokenId, auth);
+        }
+        
+        // For controller transfers, allow it to proceed
+        if (msg.sender == controller || msg.sender == owner()) {
+            return super._update(to, tokenId, auth);
+        }
+        
+        // For normal transfers, check if the domain is expired
+        // Prevent transfer if domain has expired
+        if (_exists(tokenId) && !isActive(tokenId)) {
+            revert DomainExpired(tokenId, _records[tokenId].expiry);
+        }
+        
+        return super._update(to, tokenId, auth);
     }
 } 
