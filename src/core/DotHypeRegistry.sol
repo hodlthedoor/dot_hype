@@ -57,7 +57,7 @@ contract DotHypeRegistry is ERC721, Ownable, IDotHypeRegistry {
     constructor(
         address _owner,
         address _controller
-    ) ERC721("DotHype Naming Service", "HYPE") Ownable(_owner) {
+    ) ERC721("Hype Naming Service", "HYPE") Ownable(_owner) {
         controller = _controller;
     }
 
@@ -93,7 +93,7 @@ contract DotHypeRegistry is ERC721, Ownable, IDotHypeRegistry {
         if (_exists(tokenId) && block.timestamp > _records[tokenId].expiry + GRACE_PERIOD) {
             // Since only the owner can burn, we need to do a forced burn
             // Note: This uses internal ERC721 functions to handle it properly
-            _update(address(0), tokenId, _ownerOf(tokenId));
+            _burn(tokenId);
         }
         
         // Store name record
