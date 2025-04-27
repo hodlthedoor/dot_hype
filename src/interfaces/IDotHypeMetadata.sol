@@ -13,4 +13,4 @@ interface IDotHypeMetadata {
      * @return The complete URI for the token metadata
      */
     function tokenURI(uint256 tokenId, string calldata name) external view returns (string memory);
-} 
+}

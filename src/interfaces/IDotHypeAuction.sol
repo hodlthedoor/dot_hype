@@ -34,13 +34,7 @@ interface IDotHypeAuction {
      * @param startPrice The starting price of the auction
      * @param endPrice The ending price of the auction
      */
-    event AuctionCreated(
-        string indexed name,
-        uint256 startTime,
-        uint256 endTime,
-        uint256 startPrice,
-        uint256 endPrice
-    );
+    event AuctionCreated(string indexed name, uint256 startTime, uint256 endTime, uint256 startPrice, uint256 endPrice);
 
     /**
      * @dev Emitted when an auction is claimed by a bidder
@@ -111,4 +105,4 @@ interface IDotHypeAuction {
      * @return activeAuctions The list of active auctions
      */
     function getActiveAuctions(uint256 offset, uint256 limit) external view returns (Auction[] memory activeAuctions);
-} 
+}

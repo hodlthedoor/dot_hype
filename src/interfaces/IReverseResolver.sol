@@ -44,7 +44,7 @@ interface IReverseResolver {
      * @return The domain name associated with the address, or empty string if not set
      */
     function reverseLookup(address addr) external view returns (string memory);
-    
+
     /**
      * @dev Gets the domain name for an address through reverse resolution
      * This is an alias for reverseLookup for compatibility with other systems
@@ -52,7 +52,7 @@ interface IReverseResolver {
      * @return The domain name associated with the address, or empty string if not set
      */
     function getName(address addr) external view returns (string memory);
-    
+
     /**
      * @dev Gets a specific value for an address through reverse resolution
      * This retrieves a text record from the domain pointed to by the address's reverse record
@@ -61,11 +61,11 @@ interface IReverseResolver {
      * @return The text record value associated with the key for the address's domain
      */
     function getValue(address addr, string calldata key) external view returns (string memory);
-    
+
     /**
      * @dev Checks if an address has a reverse record
      * @param addr The address to check
      * @return True if the address has a valid, non-expired reverse record
      */
     function hasRecord(address addr) external view returns (bool);
-} 
+}
