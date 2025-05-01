@@ -6,6 +6,7 @@ import "../src/core/DotHypeRegistry.sol";
 import "../src/core/DotHypeController.sol";
 import "../src/core/DotHypeResolver.sol";
 import "../src/interfaces/IPriceOracle.sol";
+import "../src/core/HypeOracle.sol";
 
 /**
  * @title MockOracle
@@ -53,15 +54,20 @@ contract DeployDotHype is Script {
         address deployer = vm.addr(deployerPrivateKey);
         console.log("Deploying contracts with address:", deployer);
 
-        // 1. Deploy the MockOracle first
+        // 1. Deploy both Oracles
+        // A. Deploy the MockOracle first (will be used initially)
         MockOracle mockOracle = new MockOracle();
         console.log("MockOracle deployed at:", address(mockOracle));
-        console.log("Conversion rate: 1 HYPE = $5000");
+        console.log("Mock conversion rate: 1 HYPE = $5000");
         
-        // Test oracle conversion rate
+        // B. Deploy the real HypeOracle (for future use)
+        HypeOracle hypeOracle = new HypeOracle();
+        console.log("HypeOracle deployed at:", address(hypeOracle));
+        
+        // Test mock oracle conversion rate
         uint256 oneUsd = 1e18; // $1 with 18 decimals
         uint256 oneUsdInHype = mockOracle.usdToHype(oneUsd);
-        console.log("$1 equals this many HYPE tokens:", oneUsdInHype);
+        console.log("$1 equals this many HYPE tokens (using MockOracle):", oneUsdInHype);
 
         // 2. Deploy the Registry
         // We need to pass controller address, but controller doesn't exist yet
@@ -76,7 +82,7 @@ contract DeployDotHype is Script {
         DotHypeController controller = new DotHypeController(
             address(registry),
             signer,
-            address(mockOracle),
+            address(mockOracle), // Initially connect to MockOracle
             deployer
         );
         console.log("DotHypeController deployed at:", address(controller));
@@ -116,6 +122,10 @@ contract DeployDotHype is Script {
         console.log("Controller: ", address(controller));
         console.log("Resolver:   ", address(resolver));
         console.log("MockOracle: ", address(mockOracle));
+        console.log("HypeOracle: ", address(hypeOracle));
+        console.log("----------------------------------------------------------------");
+        console.log("Currently using: MockOracle");
+        console.log("To switch to HypeOracle later, call controller.setPriceOracle(", address(hypeOracle), ")");
         console.log("----------------------------------------------------------------");
         console.log("MockOracle conversion rate: 1 HYPE = $5000");
         console.log("$1 equals", oneUsdInHype, "HYPE tokens");

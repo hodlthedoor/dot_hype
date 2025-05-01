@@ -24,12 +24,16 @@ hyperliquid = { key = "any", url = "https://sourcify.parsec.finance/verify" }
 hyperliquid-testnet = { key = "any", url = "https://sourcify.parsec.finance/verify" }
 
 # Verification settings
-[verify]
+[profile.verify]
 # Default verification provider to use if one is not specified
 default_verification_provider = "sourcify"
 
 # Verification provider common settings
-[verify.sourcify]
+[profile.verify.sourcify]
 url = "https://sourcify.parsec.finance/verify"
+
+[profile.hyperliquid-testnet]
+rpc_url = "${rpc_endpoints.hyperliquid-testnet}"
+
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
