@@ -1,3 +1,8 @@
+
+block toggle for hyperliquid:
+
+https://hyperevm-block-toggle.vercel.app/
+
 ## Foundry
 
 **Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
@@ -135,6 +140,71 @@ forge build
 forge test
 ```
 
+## Deployment to Hyperliquid
+
+The DotHype contracts need to be deployed in a specific sequence to the Hyperliquid blockchain. Due to gas constraints on Hyperliquid, we use a step-by-step deployment process.
+
+### Option 1: Interactive Deployment Script (Recommended)
+
+Run the interactive deployment script which will guide you through each step:
+
+```bash
+./scripts/deploy.sh
+```
+
+This script will:
+
+1. Deploy the Registry
+2. Deploy the MockOracle (fixed pricing)
+3. Deploy the HypeOracle (Hyperliquid pricing)
+4. Deploy the Controller (using MockOracle initially)
+5. Deploy the Resolver
+6. Set the Controller in the Registry
+7. Configure pricing in the Controller
+
+The script saves contract addresses to a `.env` file for future use.
+
+### Option 2: Manual Deployment
+
+For manual deployment, follow these steps:
+
+1. Set up environment variables:
+
+```bash
+export PRIVATE_KEY=your_private_key
+export RPC_URL=https://rpc.hyperliquid-testnet.xyz/evm
+```
+
+2. Deploy each contract individually using the minimal deployment scripts:
+
+```bash
+# Deploy the Registry
+forge script script/MinimalDeploy.s.sol:MinimalDeployRegistry --rpc-url $RPC_URL --broadcast --verify --use hyperliquid-deploy
+
+# Save the address
+export REGISTRY_ADDRESS=<deployed_address>
+
+# Continue with other contracts...
+```
+
+For detailed manual deployment steps, see the [deployment guide](script/README.md).
+
+### Contract Verification
+
+After deployment, verify all contracts with:
+
+```bash
+./scripts/verify.sh
+```
+
+### Switching Oracles
+
+The system initially deploys with the MockOracle (fixed pricing) for simplicity. To switch to the HypeOracle (which uses the Hyperliquid precompile for real-time HYPE pricing):
+
+```bash
+forge script script/SwitchToHypeOracle.s.sol --rpc-url $RPC_URL --broadcast
+```
+
 ## Project Structure
 
 - `src/`: Smart contract source files
@@ -145,7 +215,7 @@ forge test
   - `libraries/`: Utility libraries
 - `test/`: Contract test files
 - `script/`: Deployment scripts
-- `sdk/`: JavaScript/TypeScript SDK (to be implemented)
+- `scripts/`: Helper bash scripts for deployment and verification
 
 ## License
 

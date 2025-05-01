@@ -52,99 +52,17 @@ contract DeployBase is Script {
         address resolver;
     }
     
-    // Simple manual JSON parsing to avoid complexity
-    function getAddressFromJson(string memory json, string memory key) internal pure returns (address) {
-        // Look for the key in format: "key":"0x..."
-        bytes memory jsonBytes = bytes(json);
-        bytes memory keyBytes = bytes(string(abi.encodePacked("\"", key, "\":\"0x")));
-        
-        uint256 i = 0;
-        while (i < jsonBytes.length - keyBytes.length) {
-            bool found = true;
-            for (uint256 j = 0; j < keyBytes.length; j++) {
-                if (jsonBytes[i + j] != keyBytes[j]) {
-                    found = false;
-                    break;
-                }
-            }
-            
-            if (found) {
-                // Found the key, now extract the address (40 hex chars after 0x)
-                uint256 startPos = i + keyBytes.length;
-                bytes memory addrBytes = new bytes(42); // 0x + 40 hex chars
-                addrBytes[0] = "0";
-                addrBytes[1] = "x";
-                for (uint256 j = 0; j < 40; j++) {
-                    addrBytes[j + 2] = jsonBytes[startPos + j];
-                }
-                return parseAddress(string(addrBytes));
-            }
-            i++;
-        }
-        return address(0);
-    }
+    // Storage for addresses
+    // These need to be accessible to child contracts
+    address public mockOracleAddress;
+    address public hypeOracleAddress;
+    address public registryAddress;
+    address payable public controllerAddress;
+    address public resolverAddress;
     
-    // Parse address string to address
-    function parseAddress(string memory addrStr) internal pure returns (address) {
-        bytes memory addrBytes = bytes(addrStr);
-        require(addrBytes.length == 42, "Invalid address length"); // 0x + 40 hex chars
-        
-        bytes32 value;
-        for (uint256 i = 2; i < 42; i++) {
-            bytes1 char = addrBytes[i];
-            uint8 digit;
-            
-            if (char >= bytes1("0") && char <= bytes1("9")) {
-                digit = uint8(char) - uint8(bytes1("0"));
-            } else if (char >= bytes1("a") && char <= bytes1("f")) {
-                digit = 10 + uint8(char) - uint8(bytes1("a"));
-            } else if (char >= bytes1("A") && char <= bytes1("F")) {
-                digit = 10 + uint8(char) - uint8(bytes1("A"));
-            } else {
-                revert("Invalid address character");
-            }
-            
-            value = bytes32(uint256(value) * 16 + digit);
-        }
-        
-        return address(uint160(uint256(value)));
-    }
-    
-    // Load addresses from file if it exists, otherwise return empty struct
-    function loadAddresses() internal returns (DeployedAddresses memory) {
-        string memory filePath = "deployment_addresses.json";
-        DeployedAddresses memory addresses;
-        
-        // Check if file exists
-        if (vm.exists(filePath)) {
-            string memory json = vm.readFile(filePath);
-            
-            // Manual parsing of addresses
-            addresses.mockOracle = getAddressFromJson(json, "mockOracle");
-            addresses.hypeOracle = getAddressFromJson(json, "hypeOracle");
-            addresses.registry = getAddressFromJson(json, "registry");
-            addresses.controller = payable(getAddressFromJson(json, "controller"));
-            addresses.resolver = getAddressFromJson(json, "resolver");
-        }
-        
-        return addresses;
-    }
-    
-    // Save addresses to file
-    function saveAddresses(DeployedAddresses memory addresses) internal {
-        string memory filePath = "deployment_addresses.json";
-        string memory json = string(abi.encodePacked(
-            "{",
-            "\"mockOracle\":\"", vm.toString(addresses.mockOracle), "\",",
-            "\"hypeOracle\":\"", vm.toString(addresses.hypeOracle), "\",",
-            "\"registry\":\"", vm.toString(addresses.registry), "\",",
-            "\"controller\":\"", vm.toString(addresses.controller), "\",",
-            "\"resolver\":\"", vm.toString(addresses.resolver), "\"",
-            "}"
-        ));
-        
-        vm.writeFile(filePath, json);
-        console.log("Addresses saved to", filePath);
+    // Check if an address is zero
+    function isZeroAddress(address addr) internal pure returns (bool) {
+        return addr == address(0);
     }
 }
 
@@ -154,9 +72,6 @@ contract DeployBase is Script {
  */
 contract DeployOracles is DeployBase {
     function run() public {
-        // Load existing addresses
-        DeployedAddresses memory addresses = loadAddresses();
-        
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
         
@@ -165,34 +80,28 @@ contract DeployOracles is DeployBase {
         
         vm.startBroadcast(deployerPrivateKey);
         
-        // Deploy MockOracle if not already deployed
-        if (addresses.mockOracle == address(0)) {
-            MockOracle mockOracle = new MockOracle();
-            addresses.mockOracle = address(mockOracle);
-            console.log("MockOracle deployed at:", addresses.mockOracle);
-            
-            uint256 oneUsd = 1e18; // $1 with 18 decimals
-            uint256 oneUsdInHype = mockOracle.usdToHype(oneUsd);
-            console.log("Mock rate: 1 HYPE = $5000, $1 =", oneUsdInHype, "HYPE");
-        } else {
-            console.log("Using existing MockOracle at:", addresses.mockOracle);
-        }
+        // Deploy MockOracle
+        MockOracle mockOracle = new MockOracle();
+        mockOracleAddress = address(mockOracle);
+        console.log("MockOracle deployed at:", mockOracleAddress);
         
-        // Deploy HypeOracle if not already deployed
-        if (addresses.hypeOracle == address(0)) {
-            HypeOracle hypeOracle = new HypeOracle();
-            addresses.hypeOracle = address(hypeOracle);
-            console.log("HypeOracle deployed at:", addresses.hypeOracle);
-        } else {
-            console.log("Using existing HypeOracle at:", addresses.hypeOracle);
-        }
+        uint256 oneUsd = 1e18; // $1 with 18 decimals
+        uint256 oneUsdInHype = mockOracle.usdToHype(oneUsd);
+        console.log("Mock rate: 1 HYPE = $5000, $1 =", oneUsdInHype, "HYPE");
+        
+        // Deploy HypeOracle
+        HypeOracle hypeOracle = new HypeOracle();
+        hypeOracleAddress = address(hypeOracle);
+        console.log("HypeOracle deployed at:", hypeOracleAddress);
         
         vm.stopBroadcast();
         
-        // Save addresses
-        saveAddresses(addresses);
-        
         console.log("\n[SUCCESS] Oracles deployment complete");
+        console.log("-------------------------------------------------------");
+        console.log("IMPORTANT: Set these environment variables for next steps:");
+        console.log("export MOCK_ORACLE_ADDRESS=", mockOracleAddress);
+        console.log("export HYPE_ORACLE_ADDRESS=", hypeOracleAddress);
+        console.log("-------------------------------------------------------");
         console.log("\nNext step: Run 'forge script script/DeployForHyperliquid.s.sol:DeployRegistry --broadcast --rpc-url https://rpc.hyperliquid-testnet.xyz/evm --chain-id 998'");
     }
 }
@@ -203,36 +112,31 @@ contract DeployOracles is DeployBase {
  */
 contract DeployRegistry is DeployBase {
     function run() public {
-        // Load existing addresses
-        DeployedAddresses memory addresses = loadAddresses();
-        
-        // Ensure oracles were deployed
-        require(addresses.mockOracle != address(0), "MockOracle not deployed yet. Run DeployOracles first.");
+        // Get addresses from environment variables
+        mockOracleAddress = vm.envAddress("MOCK_ORACLE_ADDRESS");
+        require(mockOracleAddress != address(0), "MockOracle address not set. Run DeployOracles first and export the address.");
         
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
         
         console.log("\n====== Deploying Registry ======");
         console.log("Deployer address:", deployer);
+        console.log("Using MockOracle at:", mockOracleAddress);
         
         vm.startBroadcast(deployerPrivateKey);
         
-        // Deploy Registry if not already deployed
-        if (addresses.registry == address(0)) {
-            // Use deployer as temporary controller
-            DotHypeRegistry registry = new DotHypeRegistry(deployer, deployer);
-            addresses.registry = address(registry);
-            console.log("DotHypeRegistry deployed at:", addresses.registry);
-        } else {
-            console.log("Using existing Registry at:", addresses.registry);
-        }
+        // Deploy Registry
+        DotHypeRegistry registry = new DotHypeRegistry(deployer, deployer);
+        registryAddress = address(registry);
+        console.log("DotHypeRegistry deployed at:", registryAddress);
         
         vm.stopBroadcast();
         
-        // Save addresses
-        saveAddresses(addresses);
-        
         console.log("\n[SUCCESS] Registry deployment complete");
+        console.log("-------------------------------------------------------");
+        console.log("IMPORTANT: Set this environment variable for next steps:");
+        console.log("export REGISTRY_ADDRESS=", registryAddress);
+        console.log("-------------------------------------------------------");
         console.log("\nNext step: Run 'forge script script/DeployForHyperliquid.s.sol:DeployController --broadcast --rpc-url https://rpc.hyperliquid-testnet.xyz/evm --chain-id 998'");
     }
 }
@@ -243,56 +147,56 @@ contract DeployRegistry is DeployBase {
  */
 contract DeployController is DeployBase {
     function run() public {
-        // Load existing addresses
-        DeployedAddresses memory addresses = loadAddresses();
+        // Get addresses from environment variables
+        mockOracleAddress = vm.envAddress("MOCK_ORACLE_ADDRESS");
+        hypeOracleAddress = vm.envAddress("HYPE_ORACLE_ADDRESS");
+        registryAddress = vm.envAddress("REGISTRY_ADDRESS");
         
-        // Ensure previous steps were completed
-        require(addresses.mockOracle != address(0), "MockOracle not deployed yet");
-        require(addresses.registry != address(0), "Registry not deployed yet");
+        require(mockOracleAddress != address(0), "MockOracle address not set.");
+        require(registryAddress != address(0), "Registry address not set.");
         
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
         
         console.log("\n====== Deploying Controller ======");
         console.log("Deployer address:", deployer);
+        console.log("Using Registry at:", registryAddress);
+        console.log("Using MockOracle at:", mockOracleAddress);
         
         vm.startBroadcast(deployerPrivateKey);
         
-        // Deploy Controller if not already deployed
-        if (addresses.controller == address(0)) {
-            address signer = deployer; // Using deployer as signer for simplicity
-            DotHypeController controller = new DotHypeController(
-                addresses.registry,
-                signer,
-                addresses.mockOracle, // Initially connect to MockOracle
-                deployer
-            );
-            addresses.controller = payable(address(controller));
-            console.log("DotHypeController deployed at:", addresses.controller);
-            
-            // Update Registry's controller
-            DotHypeRegistry registry = DotHypeRegistry(addresses.registry);
-            registry.setController(addresses.controller);
-            console.log("Registry controller updated to:", addresses.controller);
-            
-            // Set up pricing
-            console.log("Setting up pricing...");
-            controller.setAnnualPrice(1, type(uint256).max); // 1-char - unavailable
-            controller.setAnnualPrice(2, type(uint256).max); // 2-char - unavailable
-            controller.setAnnualPrice(3, 1000 * 1e18);       // 3-char - $1000/year
-            controller.setAnnualPrice(4, 100 * 1e18);        // 4-char - $100/year
-            controller.setAnnualPrice(5, 20 * 1e18);         // 5+ char - $20/year
-            console.log("Pricing configured");
-        } else {
-            console.log("Using existing Controller at:", addresses.controller);
-        }
+        // Deploy Controller
+        address signer = deployer; // Using deployer as signer for simplicity
+        DotHypeController controller = new DotHypeController(
+            registryAddress,
+            signer,
+            mockOracleAddress, // Initially connect to MockOracle
+            deployer
+        );
+        controllerAddress = payable(address(controller));
+        console.log("DotHypeController deployed at:", controllerAddress);
+        
+        // Update Registry's controller
+        DotHypeRegistry registry = DotHypeRegistry(registryAddress);
+        registry.setController(controllerAddress);
+        console.log("Registry controller updated to:", controllerAddress);
+        
+        // Set up pricing
+        console.log("Setting up pricing...");
+        controller.setAnnualPrice(1, type(uint256).max); // 1-char - unavailable
+        controller.setAnnualPrice(2, type(uint256).max); // 2-char - unavailable
+        controller.setAnnualPrice(3, 1000 * 1e18);       // 3-char - $1000/year
+        controller.setAnnualPrice(4, 100 * 1e18);        // 4-char - $100/year
+        controller.setAnnualPrice(5, 20 * 1e18);         // 5+ char - $20/year
+        console.log("Pricing configured");
         
         vm.stopBroadcast();
         
-        // Save addresses
-        saveAddresses(addresses);
-        
         console.log("\n[SUCCESS] Controller deployment complete");
+        console.log("-------------------------------------------------------");
+        console.log("IMPORTANT: Set this environment variable for next steps:");
+        console.log("export CONTROLLER_ADDRESS=", controllerAddress);
+        console.log("-------------------------------------------------------");
         console.log("\nNext step: Run 'forge script script/DeployForHyperliquid.s.sol:DeployResolver --broadcast --rpc-url https://rpc.hyperliquid-testnet.xyz/evm --chain-id 998'");
     }
 }
@@ -303,35 +207,31 @@ contract DeployController is DeployBase {
  */
 contract DeployResolver is DeployBase {
     function run() public {
-        // Load existing addresses
-        DeployedAddresses memory addresses = loadAddresses();
-        
-        // Ensure previous steps were completed
-        require(addresses.registry != address(0), "Registry not deployed yet");
+        // Get addresses from environment variables
+        registryAddress = vm.envAddress("REGISTRY_ADDRESS");
+        require(registryAddress != address(0), "Registry address not set.");
         
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
         
         console.log("\n====== Deploying Resolver ======");
         console.log("Deployer address:", deployer);
+        console.log("Using Registry at:", registryAddress);
         
         vm.startBroadcast(deployerPrivateKey);
         
-        // Deploy Resolver if not already deployed
-        if (addresses.resolver == address(0)) {
-            DotHypeResolver resolver = new DotHypeResolver(deployer, addresses.registry);
-            addresses.resolver = address(resolver);
-            console.log("DotHypeResolver deployed at:", addresses.resolver);
-        } else {
-            console.log("Using existing Resolver at:", addresses.resolver);
-        }
+        // Deploy Resolver
+        DotHypeResolver resolver = new DotHypeResolver(deployer, registryAddress);
+        resolverAddress = address(resolver);
+        console.log("DotHypeResolver deployed at:", resolverAddress);
         
         vm.stopBroadcast();
         
-        // Save addresses
-        saveAddresses(addresses);
-        
         console.log("\n[SUCCESS] Resolver deployment complete");
+        console.log("-------------------------------------------------------");
+        console.log("IMPORTANT: Set this environment variable for next steps:");
+        console.log("export RESOLVER_ADDRESS=", resolverAddress);
+        console.log("-------------------------------------------------------");
         console.log("\nNext step: Run 'forge script script/DeployForHyperliquid.s.sol:ReserveTestDomains --broadcast --rpc-url https://rpc.hyperliquid-testnet.xyz/evm --chain-id 998'");
     }
 }
@@ -342,11 +242,14 @@ contract DeployResolver is DeployBase {
  */
 contract ReserveTestDomains is DeployBase {
     function run() public {
-        // Load existing addresses
-        DeployedAddresses memory addresses = loadAddresses();
+        // Get addresses from environment variables
+        controllerAddress = payable(vm.envAddress("CONTROLLER_ADDRESS"));
+        require(controllerAddress != address(0), "Controller address not set.");
         
-        // Ensure controller is deployed
-        require(addresses.controller != address(0), "Controller not deployed yet");
+        mockOracleAddress = vm.envAddress("MOCK_ORACLE_ADDRESS");
+        hypeOracleAddress = vm.envAddress("HYPE_ORACLE_ADDRESS");
+        registryAddress = vm.envAddress("REGISTRY_ADDRESS");
+        resolverAddress = vm.envAddress("RESOLVER_ADDRESS");
         
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
@@ -355,12 +258,12 @@ contract ReserveTestDomains is DeployBase {
         console.log("\n====== Reserving Test Domains ======");
         console.log("Deployer address:", deployer);
         console.log("Second address:", secondAddress);
+        console.log("Using Controller at:", controllerAddress);
         
         vm.startBroadcast(deployerPrivateKey);
         
         // Use the controller contract
-        // Handle the payable controller address correctly
-        DotHypeController controller = DotHypeController(addresses.controller);
+        DotHypeController controller = DotHypeController(controllerAddress);
         
         // Test names to reserve
         string[] memory names = new string[](10);
@@ -398,36 +301,35 @@ contract ReserveTestDomains is DeployBase {
         vm.stopBroadcast();
         
         console.log("\n[SUCCESS] Test domains reserved");
-        printSummary(addresses, deployer, secondAddress);
+        printSummary(deployer, secondAddress);
     }
     
     function printSummary(
-        DeployedAddresses memory addresses, 
         address deployer,
         address secondAddress
     ) internal view {
         console.log("\n====== Deployment Summary ======");
-        console.log("Registry:   ", addresses.registry);
-        console.log("Controller: ", addresses.controller);
-        console.log("Resolver:   ", addresses.resolver);
-        console.log("MockOracle: ", addresses.mockOracle);
-        console.log("HypeOracle: ", addresses.hypeOracle);
+        console.log("Registry:   ", registryAddress);
+        console.log("Controller: ", controllerAddress);
+        console.log("Resolver:   ", resolverAddress);
+        console.log("MockOracle: ", mockOracleAddress);
+        console.log("HypeOracle: ", hypeOracleAddress);
         
         console.log("\nConfigured to use: MockOracle");
         console.log("To switch to real HypeOracle later, call:");
-        console.log("controller.setPriceOracle(", addresses.hypeOracle, ")");
+        console.log("controller.setPriceOracle(", hypeOracleAddress, ")");
         
         console.log("\nTest domains:");
         console.log("Even numbers (test2, test4, etc.) reserved for:", deployer);
         console.log("Odd numbers (test1, test3, etc.) reserved for:", secondAddress);
         
         console.log("\n====== Environment Variables For Next Steps ======");
-        console.log("Run these commands to set up environment variables:");
-        console.log("export REGISTRY_ADDRESS=", addresses.registry);
-        console.log("export CONTROLLER_ADDRESS=", addresses.controller);
-        console.log("export RESOLVER_ADDRESS=", addresses.resolver);
-        console.log("export MOCK_ORACLE_ADDRESS=", addresses.mockOracle);
-        console.log("export HYPE_ORACLE_ADDRESS=", addresses.hypeOracle);
+        console.log("If not already set, run these commands:");
+        console.log("export REGISTRY_ADDRESS=", registryAddress);
+        console.log("export CONTROLLER_ADDRESS=", controllerAddress);
+        console.log("export RESOLVER_ADDRESS=", resolverAddress);
+        console.log("export MOCK_ORACLE_ADDRESS=", mockOracleAddress);
+        console.log("export HYPE_ORACLE_ADDRESS=", hypeOracleAddress);
         
         console.log("\n====== Next Steps ======");
         console.log("1. To register your reserved domains:");

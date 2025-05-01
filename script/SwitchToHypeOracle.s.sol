@@ -3,45 +3,43 @@ pragma solidity ^0.8.27;
 
 import "forge-std/Script.sol";
 import "../src/core/DotHypeController.sol";
+import "../src/interfaces/IPriceOracle.sol";
 
 /**
  * @title SwitchToHypeOracle
- * @dev Script to switch from MockOracle to HypeOracle
+ * @dev Switches the DotHypeController from using MockOracle to HypeOracle
  */
 contract SwitchToHypeOracle is Script {
     function run() public {
-        // Get deployment addresses from environment or config
-        address payable controllerAddress = payable(vm.envAddress("CONTROLLER_ADDRESS"));
+        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        address controllerAddress = vm.envAddress("CONTROLLER_ADDRESS");
         address hypeOracleAddress = vm.envAddress("HYPE_ORACLE_ADDRESS");
         
-        // Get the private key from the environment
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        console.log("Switching oracle to HypeOracle at", hypeOracleAddress);
         
-        // Start broadcasting transactions
         vm.startBroadcast(deployerPrivateKey);
-
-        // Get the deployer address
-        address deployer = vm.addr(deployerPrivateKey);
-        console.log("Switching oracles with address:", deployer);
         
-        // Get the controller contract
-        DotHypeController controller = DotHypeController(controllerAddress);
+        // Get controller reference
+        DotHypeController controller = DotHypeController(payable(controllerAddress));
         
-        // Check current oracle
-        address currentOracle = address(controller.priceOracle());
-        console.log("Current oracle address:", currentOracle);
-        console.log("Switching to HypeOracle at:", hypeOracleAddress);
-        
-        // Update the oracle
+        // Switch to HypeOracle
         controller.setPriceOracle(hypeOracleAddress);
         
-        // Verify the change
-        address newOracle = address(controller.priceOracle());
-        console.log("New oracle address:", newOracle);
+        // Test the oracle
+        IPriceOracle oracle = IPriceOracle(hypeOracleAddress);
+        try oracle.getRawPrice() returns (uint64 rawPrice) {
+            console.log("HypeOracle price (raw):", rawPrice);
+            
+            // Test USD to HYPE conversion (for $100)
+            uint256 usdAmount = 100 * 1e18; // $100 in 18 decimals
+            uint256 hypeAmount = oracle.usdToHype(usdAmount);
+            console.log("$100 USD = ", hypeAmount / 1e18, "HYPE");
+        } catch {
+            console.log("Warning: Could not read price from HypeOracle!");
+        }
         
-        // Stop broadcasting transactions
+        console.log("Controller now using HypeOracle at:", hypeOracleAddress);
+        
         vm.stopBroadcast();
-        
-        console.log("Oracle switch complete!");
     }
 } 

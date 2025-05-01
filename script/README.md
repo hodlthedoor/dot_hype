@@ -1,102 +1,136 @@
-# DotHype Deployment Scripts
+# DotHype Deployment Guide for Hyperliquid
 
-This directory contains scripts for deploying and managing the DotHype domain service on Hyperliquid.
+This guide outlines the steps to deploy the DotHype domain name system to the Hyperliquid blockchain.
 
-## Key Issues & Solutions
+## Prerequisites
 
-The Hyperliquid chain has a block gas limit that can be exceeded when trying to deploy multiple contracts and run multiple transactions in a single script. To resolve this, we've created two deployment approaches:
+1. Set up your environment variables:
+   ```bash
+   export PRIVATE_KEY=your_private_key
+   export RPC_URL=https://rpc.hyperliquid-testnet.xyz/evm
+   ```
 
-1. **Multi-Contract Script with Transaction Batching** (`DeployAndSetupDotHype.s.sol`)
-2. **Step-by-Step Deployment Scripts** (`DeployForHyperliquid.s.sol`)
+## Step-by-Step Deployment
 
-## Step-by-Step Deployment (Recommended)
-
-This approach divides the deployment process into separate steps, each in its own transaction. This ensures we stay within gas limits.
-
-### Deployment Steps
-
-```bash
-# 1. Deploy both oracles (MockOracle and HypeOracle)
-forge script script/DeployForHyperliquid.s.sol:DeployOracles --broadcast
-
-# 2. Deploy the Registry
-forge script script/DeployForHyperliquid.s.sol:DeployRegistry --broadcast
-
-# 3. Deploy the Controller and configure pricing
-forge script script/DeployForHyperliquid.s.sol:DeployController --broadcast
-
-# 4. Deploy the Resolver
-forge script script/DeployForHyperliquid.s.sol:DeployResolver --broadcast
-
-# 5. Reserve test domains
-forge script script/DeployForHyperliquid.s.sol:ReserveTestDomains --broadcast
-```
-
-This approach will:
-
-- Save contract addresses to a JSON file between steps
-- Only deploy contracts that haven't been deployed yet
-- Provide clear next steps after each stage
-
-## Working with Deployed Contracts
-
-After deployment, you'll need to set environment variables for other scripts to work:
+### 1. Deploy the Registry
 
 ```bash
-export REGISTRY_ADDRESS=0x...
-export CONTROLLER_ADDRESS=0x...
-export RESOLVER_ADDRESS=0x...
-export MOCK_ORACLE_ADDRESS=0x...
-export HYPE_ORACLE_ADDRESS=0x...
+forge script script/MinimalDeploy.s.sol:MinimalDeployRegistry --rpc-url $RPC_URL --broadcast --verify
 ```
 
-These values will be output at the end of the deployment process.
-
-## Utility Scripts
-
-### Register Reserved Names
-
-Registers domain names that have been reserved for your address:
+After deployment, set the registry address in your environment:
 
 ```bash
-forge script script/RegisterReservedNames.s.sol --broadcast
+export REGISTRY_ADDRESS=<deployed_registry_address>
 ```
 
-### Check Registered Domains
-
-View all domains registered to specific addresses:
+### 2. Deploy the MockOracle (for fixed pricing)
 
 ```bash
-forge script script/CheckDomains.s.sol
+forge script script/MinimalDeploy.s.sol:MinimalDeployMockOracle --rpc-url $RPC_URL --broadcast --verify
 ```
 
-### Switch Oracle
-
-Switch from MockOracle to the real HypeOracle:
+Set the MockOracle address:
 
 ```bash
-forge script script/SwitchToHypeOracle.s.sol --broadcast
+export MOCK_ORACLE_ADDRESS=<deployed_mock_oracle_address>
 ```
 
-### Test HypeOracle
-
-Test the functionality of the real HypeOracle:
+### 3. Deploy the HypeOracle (for Hyperliquid pricing)
 
 ```bash
-forge script script/TestHypeOracle.s.sol
+forge script script/MinimalDeploy.s.sol:MinimalDeployHypeOracle --rpc-url $RPC_URL --broadcast --verify
 ```
 
-## Oracle Usage
+Set the HypeOracle address:
 
-The deployment initially configures the system to use MockOracle with a fixed conversion rate (1 HYPE = $5000). This allows you to test and use the system immediately.
+```bash
+export HYPE_ORACLE_ADDRESS=<deployed_hype_oracle_address>
+```
 
-When you're ready to switch to the real HypeOracle (which uses the Hyperliquid precompile), run the SwitchToHypeOracle script.
+### 4. Deploy the Controller (using the MockOracle initially)
 
-## Test Domains
+```bash
+forge script script/MinimalDeploy.s.sol:MinimalDeployController --rpc-url $RPC_URL --broadcast --verify
+```
 
-The deployment reserves test domains (test1 through test10) as follows:
+Set the Controller address:
 
-- Odd-numbered domains (test1, test3, etc.) for `0xc2AbE12785B69349b9C85F9b6812D8894C8AB945`
-- Even-numbered domains (test2, test4, etc.) for your deployer address
+```bash
+export CONTROLLER_ADDRESS=<deployed_controller_address>
+```
 
-Only the owner of a reserved name can register it using the `registerReserved` function.
+### 5. Deploy the Resolver
+
+```bash
+forge script script/MinimalDeploy.s.sol:MinimalDeployResolver --rpc-url $RPC_URL --broadcast --verify
+```
+
+Set the Resolver address:
+
+```bash
+export RESOLVER_ADDRESS=<deployed_resolver_address>
+```
+
+### 6. Set the Controller in the Registry
+
+```bash
+forge script script/MinimalDeploy.s.sol:SetController --rpc-url $RPC_URL --broadcast
+```
+
+### 7. Configure Pricing in the Controller
+
+```bash
+forge script script/MinimalDeploy.s.sol:SetPricing --rpc-url $RPC_URL --broadcast
+```
+
+## Switching Oracles (Optional)
+
+To switch from the MockOracle to the HypeOracle later:
+
+1. Create a new script:
+
+```solidity
+// SwitchToHypeOracle.s.sol
+contract SwitchToHypeOracle is Script {
+    function run() public {
+        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        address controllerAddress = vm.envAddress("CONTROLLER_ADDRESS");
+        address hypeOracleAddress = vm.envAddress("HYPE_ORACLE_ADDRESS");
+
+        vm.startBroadcast(deployerPrivateKey);
+        DotHypeController controller = DotHypeController(payable(controllerAddress));
+        controller.setPriceOracle(hypeOracleAddress);
+        console.log("Controller now using HypeOracle at:", hypeOracleAddress);
+        vm.stopBroadcast();
+    }
+}
+```
+
+2. Run the script:
+
+```bash
+forge script script/SwitchToHypeOracle.s.sol --rpc-url $RPC_URL --broadcast
+```
+
+## Troubleshooting
+
+### Gas Limit Issues
+
+If you encounter "exceeds block gas limit" errors:
+
+1. Try increasing the gas limit in your forge script command:
+
+   ```bash
+   forge script script/MinimalDeploy.s.sol:MinimalDeployRegistry --rpc-url $RPC_URL --broadcast --gas-limit 10000000
+   ```
+
+2. If that doesn't work, try lowering the `optimizer_runs` setting in foundry.toml temporarily for deployment.
+
+### Contract Verification
+
+For verification on Hyperliquid via Sourcify:
+
+```bash
+forge verify-contract --chain hyperliquid-testnet <CONTRACT_ADDRESS> <CONTRACT_NAME>
+```
