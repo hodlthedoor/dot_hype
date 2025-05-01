@@ -243,10 +243,15 @@ contract DotHypeControllerTest is Test {
             signature = abi.encodePacked(r, s, v);
         }
 
-        // Should revert with InsufficientPayment because our maxPrice is too low
+        // Should revert with CharacterLengthNotAvailable for 1 character domains
         vm.deal(registrant, maxPrice);
         vm.prank(registrant);
-        vm.expectRevert();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                DotHypeController.CharacterLengthNotAvailable.selector,
+                1 // 1 character
+            )
+        );
         controller.registerWithSignature{value: maxPrice}(oneChar, registrant, duration, maxPrice, deadline, signature);
 
         // Try to register 2-character domain
@@ -260,9 +265,14 @@ contract DotHypeControllerTest is Test {
             signature = abi.encodePacked(r, s, v);
         }
 
-        // Should also revert with InsufficientPayment
+        // Should revert with CharacterLengthNotAvailable for 2 character domains
         vm.prank(registrant);
-        vm.expectRevert();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                DotHypeController.CharacterLengthNotAvailable.selector,
+                2 // 2 characters
+            )
+        );
         controller.registerWithSignature{value: maxPrice}(twoChar, registrant, duration, maxPrice, deadline, signature);
     }
 

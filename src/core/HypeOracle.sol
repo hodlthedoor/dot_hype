@@ -8,8 +8,8 @@ import "../interfaces/IPriceOracle.sol";
  * @dev Oracle contract for converting USD amounts to HYPE using the Hyperliquid precompile
  */
 contract HypeOracle is IPriceOracle {
-    address constant PRECOMPILE = 0x0000000000000000000000000000000000000808;
-    uint32 constant PAIR_ID = 1035; // HYPE/USD spot pair
+    address constant PRECOMPILE = 0x0000000000000000000000000000000000000808; // Using 0x808 for spot prices
+    uint32 constant PAIR_ID = 107; 
     uint256 constant SCALE = 1e6; // 10^(8 − szDecimals)  (szDecimals = 2)
 
     /**
@@ -23,12 +23,19 @@ contract HypeOracle is IPriceOracle {
     }
 
     /**
-     * @dev Gets the raw HYPE/USD price from the precompile
+     * @dev Gets the raw price from the precompile
      * @return price Raw price in the precompile format (scaled by 1e6)
      */
     function getRawPrice() public view override returns (uint64 price) {
-        (bool ok, bytes memory ret) = PRECOMPILE.staticcall(abi.encode(PAIR_ID));
-        require(ok && ret.length == 8, "price fetch failed");
+        // Use standard abi.encode as used in hypercore-sim
+        bytes memory data = abi.encode(PAIR_ID);
+        (bool ok, bytes memory ret) = PRECOMPILE.staticcall(data);
+        
+        // Check if the call was successful
+        require(ok, "SpotPx precompile call failed");
+        
+        // Use abi.decode to extract the uint64 value as done in hypercore-sim
         price = abi.decode(ret, (uint64));
     }
 }
+

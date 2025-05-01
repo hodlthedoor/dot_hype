@@ -16,4 +16,7 @@ verbosity = 3
 fuzz_runs = 10000
 gas_reports = ["*"]
 
+[rpc_endpoints]
+hyperliquid-testnet = "https://rpc.hyperliquid-testnet.xyz/evm"
+
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

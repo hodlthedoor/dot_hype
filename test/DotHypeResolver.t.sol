@@ -8,6 +8,7 @@ import "../src/interfaces/IReverseResolver.sol";
 import "../lib/ens-contracts/contracts/resolvers/profiles/IAddrResolver.sol";
 import "../lib/ens-contracts/contracts/resolvers/profiles/ITextResolver.sol";
 import "../lib/ens-contracts/contracts/resolvers/profiles/IContentHashResolver.sol";
+import "../lib/ens-contracts/contracts/resolvers/IMulticallable.sol";
 
 /**
  * @title DotHypeResolverTest
@@ -647,5 +648,154 @@ contract DotHypeResolverTest is Test {
         assertEq(resolver.getNode(alice), bytes32(0));
         assertFalse(resolver.hasRecord(alice));
         assertEq(resolver.getName(alice), "");
+    }
+
+    /**
+     * @dev Test multicall functionality
+     */
+    function testMulticall() public {
+        string memory email = "alice@example.com";
+        string memory url = "https://alice.example.com";
+        string memory twitter = "@alicehype";
+
+        // Prepare the multicall data
+        bytes[] memory data = new bytes[](3);
+
+        // Call 1: Set address - use signature string to avoid ambiguity
+        data[0] = abi.encodeWithSignature("setAddr(bytes32,address)", aliceNode, alice);
+
+        // Call 2: Set email text record
+        data[1] = abi.encodeWithSignature("setText(bytes32,string,string)", aliceNode, "email", email);
+
+        // Call 3: Set url text record
+        data[2] = abi.encodeWithSignature("setText(bytes32,string,string)", aliceNode, "url", url);
+
+        // Alice executes multicall
+        vm.startPrank(alice);
+        resolver.multicall(data);
+        vm.stopPrank();
+
+        // Verify all records were set correctly
+        assertEq(resolver.addr(aliceNode), alice);
+        assertEq(resolver.text(aliceNode, "email"), email);
+        assertEq(resolver.text(aliceNode, "url"), url);
+
+        // Test multicall with a mix of different record types
+        data = new bytes[](3);
+
+        // Call 1: Set twitter text record
+        data[0] = abi.encodeWithSignature("setText(bytes32,string,string)", aliceNode, "twitter", twitter);
+
+        // Call 2: Set content hash
+        data[1] = abi.encodeWithSignature("setContenthash(bytes32,bytes)", aliceNode, contentHash);
+
+        // Call 3: Set Bitcoin address - use signature for the coin type version
+        data[2] = abi.encodeWithSignature(
+            "setAddr(bytes32,uint256,bytes)",
+            aliceNode,
+            uint256(0), // BTC coin type
+            bitcoinAddress
+        );
+
+        // Alice executes second multicall
+        vm.startPrank(alice);
+        resolver.multicall(data);
+        vm.stopPrank();
+
+        // Verify all new records were set correctly
+        assertEq(resolver.text(aliceNode, "twitter"), twitter);
+        assertEq(resolver.contenthash(aliceNode), contentHash);
+        assertEq(resolver.addr(aliceNode, 0), bitcoinAddress);
+
+        // Original records should still be there
+        assertEq(resolver.addr(aliceNode), alice);
+        assertEq(resolver.text(aliceNode, "email"), email);
+        assertEq(resolver.text(aliceNode, "url"), url);
+    }
+
+    /**
+     * @dev Test multicall security - with unauthorized actions
+     */
+    function testMulticallSecurity() public {
+        string memory email = "bob@example.com";
+
+        // Prepare multicall data with unauthorized operations
+        bytes[] memory data = new bytes[](2);
+
+        // Call 1: Set address for Bob's own domain (authorized)
+        data[0] = abi.encodeWithSignature("setAddr(bytes32,address)", bobNode, bob);
+
+        // Call 2: Try to set address for Alice's domain (unauthorized)
+        data[1] = abi.encodeWithSignature("setAddr(bytes32,address)", aliceNode, bob);
+
+        // Bob tries to execute multicall with an unauthorized operation
+        vm.startPrank(bob);
+        vm.expectRevert(); // Should revert due to unauthorized operation
+        resolver.multicall(data);
+        vm.stopPrank();
+
+        // Verify no changes were made
+        assertEq(resolver.addr(bobNode), address(0));
+        assertEq(resolver.addr(aliceNode), address(0));
+
+        // Test that multicall fails if any operation would be invalid
+        data = new bytes[](2);
+
+        // Call 1: Set address for Bob's domain
+        data[0] = abi.encodeWithSignature("setAddr(bytes32,address)", bobNode, bob);
+
+        // Call 2: Try to set a text record for Charlie's domain, which is expired
+        // First advance time to expire Charlie's domain
+        vm.warp(block.timestamp + SHORT_DURATION + 1);
+
+        data[1] = abi.encodeWithSignature("setText(bytes32,string,string)", charlieNode, "email", email);
+
+        // Bob tries to execute multicall with an operation on expired domain
+        vm.startPrank(bob);
+        vm.expectRevert(); // Should revert due to expired domain
+        resolver.multicall(data);
+        vm.stopPrank();
+
+        // Verify no changes were made
+        assertEq(resolver.addr(bobNode), address(0));
+    }
+
+    /**
+     * @dev Test multicallWithNodeCheck security function
+     */
+    function testMulticallWithNodeCheck() public {
+        string memory email = "alice@example.com";
+        string memory url = "https://alice.example.com";
+
+        // Prepare the multicall data for the same node
+        bytes[] memory data = new bytes[](2);
+
+        // Both calls target aliceNode
+        data[0] = abi.encodeWithSignature("setText(bytes32,string,string)", aliceNode, "email", email);
+
+        data[1] = abi.encodeWithSignature("setText(bytes32,string,string)", aliceNode, "url", url);
+
+        // Alice executes multicallWithNodeCheck for her domain
+        vm.startPrank(alice);
+        resolver.multicallWithNodeCheck(aliceNode, data);
+        vm.stopPrank();
+
+        // Verify records were set
+        assertEq(resolver.text(aliceNode, "email"), email);
+        assertEq(resolver.text(aliceNode, "url"), url);
+
+        // Now try with mismatched nodes - should fail
+        data = new bytes[](2);
+
+        data[0] = abi.encodeWithSignature("setText(bytes32,string,string)", aliceNode, "email", email);
+
+        // Second call targets bobNode instead of aliceNode
+        data[1] = abi.encodeWithSignature("setText(bytes32,string,string)", bobNode, "url", url);
+
+        // Alice tries multicallWithNodeCheck with mismatched nodes
+        vm.startPrank(alice);
+        vm.expectRevert("multicall: All records must have a matching namehash");
+        resolver.multicallWithNodeCheck(aliceNode, data);
+        vm.stopPrank();
     }
 }

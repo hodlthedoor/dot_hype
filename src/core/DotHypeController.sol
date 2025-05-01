@@ -28,6 +28,9 @@ contract DotHypeController is Ownable, EIP712 {
     error InvalidPriceConfig();
     error OracleNotSet();
     error FundsTransferFailed();
+    error NameIsReserved(bytes32 nameHash, address reservedFor);
+    error NotReserved(string name);
+    error NotAuthorized(address caller, bytes32 nameHash);
 
     // Registration params struct to avoid stack too deep errors
     struct RegistrationParams {
@@ -60,6 +63,9 @@ contract DotHypeController is Ownable, EIP712 {
     // Payment recipient
     address public paymentRecipient;
 
+    // Reserved names mapping: nameHash => reserved for address
+    mapping(bytes32 => address) public reservedNames;
+
     // EIP-712 type hash
     bytes32 private constant REGISTRATION_TYPEHASH = keccak256(
         "Registration(string name,address owner,uint256 duration,uint256 maxPrice,uint256 deadline,uint256 nonce)"
@@ -76,6 +82,9 @@ contract DotHypeController is Ownable, EIP712 {
     event PaymentRecipientUpdated(address recipient);
     event Withdrawn(address recipient, uint256 amount);
     event PriceOracleUpdated(address oracle);
+    event NameReserved(bytes32 indexed nameHash, address indexed reservedFor);
+    event NameReservationRemoved(bytes32 indexed nameHash);
+    event ReservedNameRegistered(string name, address owner, uint256 duration);
 
     /**
      * @dev Constructor
@@ -88,7 +97,7 @@ contract DotHypeController is Ownable, EIP712 {
         Ownable(_owner)
         EIP712("DotHypeController", "1")
     {
-        if (_priceOracle == address(0)) revert OracleNotSet();
+        require(_priceOracle != address(0), OracleNotSet());
 
         registry = IDotHypeRegistry(_registry);
         signer = _signer;
@@ -115,9 +124,7 @@ contract DotHypeController is Ownable, EIP712 {
         bytes calldata signature
     ) internal returns (bool) {
         // Check if signature is expired
-        if (block.timestamp > deadline) {
-            revert SignatureExpired();
-        }
+        require(block.timestamp <= deadline, SignatureExpired());
 
         uint256 nonce = nonces[owner]++;
 
@@ -129,9 +136,7 @@ contract DotHypeController is Ownable, EIP712 {
 
         // Recover signer and check
         address recoveredSigner = ECDSA.recover(hash, signature);
-        if (recoveredSigner != signer) {
-            revert InvalidSigner();
-        }
+        require(recoveredSigner == signer, InvalidSigner());
 
         return true;
     }
@@ -143,24 +148,18 @@ contract DotHypeController is Ownable, EIP712 {
      */
     function _processPayment(uint256 price) internal returns (uint256) {
         // Check if payment is sufficient
-        if (msg.value < price) {
-            revert InsufficientPayment(price, msg.value);
-        }
+        require(msg.value >= price, InsufficientPayment(price, msg.value));
 
         // Forward payment to the recipient
         if (price > 0 && paymentRecipient != address(0)) {
             (bool success,) = paymentRecipient.call{value: price}("");
-            if (!success) {
-                revert FundsTransferFailed();
-            }
+            require(success, FundsTransferFailed());
         }
 
         // Refund excess payment
         if (msg.value > price) {
             (bool success,) = payable(msg.sender).call{value: msg.value - price}("");
-            if (!success) {
-                revert FundsTransferFailed();
-            }
+            require(success, FundsTransferFailed());
         }
 
         return price;
@@ -183,16 +182,26 @@ contract DotHypeController is Ownable, EIP712 {
         uint256 deadline,
         bytes calldata signature
     ) external payable returns (uint256 tokenId, uint256 expiry) {
+        // Check if name is reserved
+        bytes32 nameHash = keccak256(bytes(name));
+        address reservedFor = reservedNames[nameHash];
+        if (reservedFor != address(0) && reservedFor != owner) {
+            revert NameIsReserved(nameHash, reservedFor);
+        }
+
         // Verify signature
         _verifySignature(name, owner, duration, maxPrice, deadline, signature);
 
         // Calculate price
         uint256 price = calculatePrice(name, duration);
 
-        // Check if price is acceptable
-        if (price > maxPrice) {
-            revert InsufficientPayment(price, maxPrice);
+        // Check if domain has max price (effectively unavailable)
+        if (price == type(uint256).max) {
+            revert CharacterLengthNotAvailable(bytes(name).length);
         }
+
+        // Check if price is acceptable
+        require(price <= maxPrice, InsufficientPayment(price, maxPrice));
 
         // Process payment
         _processPayment(price);
@@ -201,6 +210,43 @@ contract DotHypeController is Ownable, EIP712 {
         (tokenId, expiry) = registry.register(name, owner, duration);
 
         emit DomainRegistered(name, owner, duration, price);
+    }
+
+    /**
+     * @dev Register a reserved domain
+     * @param name Domain name to register (without .hype)
+     * @param duration Registration duration in seconds
+     */
+    function registerReserved(string calldata name, uint256 duration)
+        external
+        payable
+        returns (uint256 tokenId, uint256 expiry)
+    {
+        bytes32 nameHash = keccak256(bytes(name));
+        address reservedFor = reservedNames[nameHash];
+
+        // Check if the name is reserved for the sender
+        if (reservedFor == address(0)) {
+            revert NotReserved(name);
+        }
+        if (reservedFor != msg.sender) {
+            revert NotAuthorized(msg.sender, nameHash);
+        }
+
+        // Calculate price
+        uint256 price = calculatePrice(name, duration);
+
+        // Process payment
+        _processPayment(price);
+
+        // Register domain
+        (tokenId, expiry) = registry.register(name, msg.sender, duration);
+
+        // Clear the reservation by setting it to address(0)
+        reservedNames[nameHash] = address(0);
+
+        emit ReservedNameRegistered(name, msg.sender, duration);
+        emit NameReservationRemoved(nameHash);
     }
 
     /**
@@ -245,16 +291,17 @@ contract DotHypeController is Ownable, EIP712 {
         uint256 priceIndex = charCount < 5 ? charCount : 5;
 
         // Make sure price index is valid (greater than 0)
-        if (priceIndex == 0) {
-            revert InvalidCharacterCount(charCount);
-        }
+        require(priceIndex > 0, InvalidCharacterCount(charCount));
 
         // Get annual price in USD (1e18 = $1)
         uint256 annualPrice = annualPrices[priceIndex];
 
         // Check if price is set
-        if (annualPrice == 0) {
-            revert PricingNotSet();
+        require(annualPrice > 0, PricingNotSet());
+
+        // Handle special case for effectively unavailable domains (type(uint256).max)
+        if (annualPrice == type(uint256).max) {
+            return type(uint256).max;
         }
 
         // Calculate USD price based on duration (proportional to 365 days)
@@ -264,6 +311,55 @@ contract DotHypeController is Ownable, EIP712 {
         price = priceOracle.usdToHype(usdPrice);
 
         return price;
+    }
+
+    /**
+     * @dev Set a name reservation
+     * @param name Domain name to reserve (without .hype)
+     * @param reservedFor Address that can register the reserved name (use address(0) to remove reservation)
+     */
+    function setReservation(string calldata name, address reservedFor) external onlyOwner {
+        bytes32 nameHash = keccak256(bytes(name));
+        reservedNames[nameHash] = reservedFor;
+        
+        if (reservedFor == address(0)) {
+            emit NameReservationRemoved(nameHash);
+        } else {
+            emit NameReserved(nameHash, reservedFor);
+        }
+    }
+
+    /**
+     * @dev Set multiple name reservations at once
+     * @param names Array of domain names to reserve (without .hype)
+     * @param reservedAddresses Array of addresses that can register the reserved names (use address(0) to remove reservation)
+     */
+    function setBatchReservations(string[] calldata names, address[] calldata reservedAddresses) external onlyOwner {
+        require(names.length == reservedAddresses.length, "Array lengths mismatch");
+
+        for (uint256 i = 0; i < names.length; i++) {
+            bytes32 nameHash = keccak256(bytes(names[i]));
+            reservedNames[nameHash] = reservedAddresses[i];
+            
+            if (reservedAddresses[i] == address(0)) {
+                emit NameReservationRemoved(nameHash);
+            } else {
+                emit NameReserved(nameHash, reservedAddresses[i]);
+            }
+        }
+    }
+
+    /**
+     * @dev Check if a name is reserved and for whom
+     * @param name Domain name to check (without .hype)
+     * @return isReserved Whether the name is reserved
+     * @return reservedFor Address the name is reserved for (address(0) if not reserved)
+     */
+    function checkReservation(string calldata name) external view returns (bool isReserved, address reservedFor) {
+        bytes32 nameHash = keccak256(bytes(name));
+        reservedFor = reservedNames[nameHash];
+        isReserved = reservedFor != address(0);
+        return (isReserved, reservedFor);
     }
 
     /**
@@ -282,9 +378,7 @@ contract DotHypeController is Ownable, EIP712 {
      */
     function setAnnualPrice(uint256 charCount, uint256 annualPrice) external onlyOwner {
         // Ensure charCount is within valid range (1-5)
-        if (charCount < 1 || charCount > 5) {
-            revert InvalidCharacterCount(charCount);
-        }
+        require(charCount >= 1 && charCount <= 5, InvalidCharacterCount(charCount));
 
         // Set the price
         annualPrices[charCount] = annualPrice;
@@ -318,7 +412,7 @@ contract DotHypeController is Ownable, EIP712 {
      * @param _priceOracle Address of the price oracle contract
      */
     function setPriceOracle(address _priceOracle) external onlyOwner {
-        if (_priceOracle == address(0)) revert OracleNotSet();
+        require(_priceOracle != address(0), OracleNotSet());
         priceOracle = IPriceOracle(_priceOracle);
         emit PriceOracleUpdated(_priceOracle);
     }
@@ -332,9 +426,7 @@ contract DotHypeController is Ownable, EIP712 {
         if (balance == 0) return;
 
         (bool success,) = recipient.call{value: balance}("");
-        if (!success) {
-            revert WithdrawalFailed();
-        }
+        require(success, WithdrawalFailed());
 
         emit Withdrawn(recipient, balance);
     }

@@ -7,3 +7,6 @@
 [submodule "lib/ens-contracts"]
 	path = lib/ens-contracts
 	url = https://github.com/ensdomains/ens-contracts
+[submodule "lib/hypercore-sim"]
+	path = lib/hypercore-sim
+	url = https://github.com/cosullivan/hypercore-sim

@@ -385,4 +385,146 @@ contract DotHypeRegistryTest is Test {
         vm.expectRevert(abi.encodeWithSelector(DotHypeRegistry.NameNotAvailable.selector, name));
         registry.register(name, user2, duration);
     }
+
+    // Test that controller cannot transfer expired domains
+    function testControllerCannotTransferExpiredDomains() public {
+        string memory name = "controllertest";
+        uint256 duration = 30 days;
+
+        // Register a name
+        vm.prank(controller);
+        (uint256 tokenId, uint256 initialExpiry) = registry.register(name, user1, duration);
+
+        // Move time forward to after expiry
+        vm.warp(initialExpiry + 1);
+
+        // Verify domain is expired
+        assertTrue(block.timestamp > initialExpiry);
+
+        // Try to transfer as controller
+        vm.prank(controller);
+        vm.expectRevert(abi.encodeWithSelector(DotHypeRegistry.DomainExpired.selector, tokenId, initialExpiry));
+        registry.transferFrom(user1, user2, tokenId);
+
+        // Confirm the domain is still owned by user1
+        assertEq(registry.ownerOf(tokenId), user1);
+    }
+
+    // Test that contract owner cannot transfer expired domains
+    function testOwnerCannotTransferExpiredDomains() public {
+        string memory name = "ownertest";
+        uint256 duration = 30 days;
+
+        // Register a name
+        vm.prank(controller);
+        (uint256 tokenId, uint256 initialExpiry) = registry.register(name, user1, duration);
+
+        // Move time forward to after expiry
+        vm.warp(initialExpiry + 1);
+
+        // Verify domain is expired
+        assertTrue(block.timestamp > initialExpiry);
+
+        // Try to transfer as owner of the contract
+        vm.prank(owner);
+        vm.expectRevert(abi.encodeWithSelector(DotHypeRegistry.DomainExpired.selector, tokenId, initialExpiry));
+        registry.transferFrom(user1, user2, tokenId);
+
+        // Confirm the domain is still owned by user1
+        assertEq(registry.ownerOf(tokenId), user1);
+    }
+
+    // Test that approved operators cannot transfer expired domains
+    function testApprovedOperatorCannotTransferExpiredDomains() public {
+        string memory name = "operatortest";
+        uint256 duration = 30 days;
+
+        // Register a name
+        vm.prank(controller);
+        (uint256 tokenId, uint256 initialExpiry) = registry.register(name, user1, duration);
+
+        // Approve user2 as operator
+        vm.prank(user1);
+        registry.approve(user2, tokenId);
+
+        // Verify user2 is approved
+        assertEq(registry.getApproved(tokenId), user2);
+
+        // Move time forward to after expiry
+        vm.warp(initialExpiry + 1);
+
+        // Verify domain is expired
+        assertTrue(block.timestamp > initialExpiry);
+
+        // Try to transfer as approved operator
+        vm.prank(user2);
+        vm.expectRevert(abi.encodeWithSelector(DotHypeRegistry.DomainExpired.selector, tokenId, initialExpiry));
+        registry.transferFrom(user1, user2, tokenId);
+
+        // Confirm the domain is still owned by user1
+        assertEq(registry.ownerOf(tokenId), user1);
+    }
+
+    // Test that approved for all operators cannot transfer expired domains
+    function testApprovedForAllOperatorCannotTransferExpiredDomains() public {
+        string memory name = "allapprovaltest";
+        uint256 duration = 30 days;
+
+        // Register a name
+        vm.prank(controller);
+        (uint256 tokenId, uint256 initialExpiry) = registry.register(name, user1, duration);
+
+        // Approve user2 for all tokens
+        vm.prank(user1);
+        registry.setApprovalForAll(user2, true);
+
+        // Verify user2 is approved for all
+        assertTrue(registry.isApprovedForAll(user1, user2));
+
+        // Move time forward to after expiry
+        vm.warp(initialExpiry + 1);
+
+        // Verify domain is expired
+        assertTrue(block.timestamp > initialExpiry);
+
+        // Try to transfer as approved for all operator
+        vm.prank(user2);
+        vm.expectRevert(abi.encodeWithSelector(DotHypeRegistry.DomainExpired.selector, tokenId, initialExpiry));
+        registry.transferFrom(user1, user2, tokenId);
+
+        // Confirm the domain is still owned by user1
+        assertEq(registry.ownerOf(tokenId), user1);
+    }
+
+    // Test that safeTransferFrom cannot be used with expired domains
+    function testSafeTransferFromWithExpiredDomains() public {
+        string memory name = "safetransfertest";
+        uint256 duration = 30 days;
+
+        // Register a name
+        vm.prank(controller);
+        (uint256 tokenId, uint256 initialExpiry) = registry.register(name, user1, duration);
+
+        // Move time forward to after expiry
+        vm.warp(initialExpiry + 1);
+
+        // Verify domain is expired
+        assertTrue(block.timestamp > initialExpiry);
+
+        // Try to use safeTransferFrom
+        vm.prank(user1);
+        vm.expectRevert(abi.encodeWithSelector(DotHypeRegistry.DomainExpired.selector, tokenId, initialExpiry));
+        registry.safeTransferFrom(user1, user2, tokenId);
+
+        // Confirm the domain is still owned by user1
+        assertEq(registry.ownerOf(tokenId), user1);
+
+        // Try safeTransferFrom with data
+        vm.prank(user1);
+        vm.expectRevert(abi.encodeWithSelector(DotHypeRegistry.DomainExpired.selector, tokenId, initialExpiry));
+        registry.safeTransferFrom(user1, user2, tokenId, "");
+
+        // Confirm the domain is still owned by user1
+        assertEq(registry.ownerOf(tokenId), user1);
+    }
 }

@@ -12,6 +12,7 @@ import "../../lib/ens-contracts/contracts/resolvers/profiles/IAddressResolver.so
 import "../../lib/ens-contracts/contracts/resolvers/profiles/ITextResolver.sol";
 import "../../lib/ens-contracts/contracts/resolvers/profiles/IContentHashResolver.sol";
 import "../../lib/ens-contracts/contracts/resolvers/ResolverBase.sol";
+import "../../lib/ens-contracts/contracts/resolvers/Multicallable.sol";
 
 /**
  * @title DotHypeResolver
@@ -21,6 +22,7 @@ import "../../lib/ens-contracts/contracts/resolvers/ResolverBase.sol";
 contract DotHypeResolver is
     Ownable,
     ResolverBase,
+    Multicallable,
     IAddrResolver,
     IAddressResolver,
     ITextResolver,
@@ -209,11 +211,11 @@ contract DotHypeResolver is
 
     /**
      * @dev Gets the domain node that an address points to (reverse resolution)
-     * @param addr The address to lookup
+     * @param address_ The address to lookup
      * @return The domain node the address is associated with
      */
-    function getNode(address addr) public view override returns (bytes32) {
-        return _reverseRecords[addr];
+    function getNode(address address_) public view override returns (bytes32) {
+        return _reverseRecords[address_];
     }
 
     /**
@@ -248,11 +250,11 @@ contract DotHypeResolver is
 
     /**
      * @dev Gets the domain name for an address through reverse resolution
-     * @param addr The address to lookup
+     * @param address_ The address to lookup
      * @return The domain name associated with the address, or empty string if not set
      */
-    function reverseLookup(address addr) public view override returns (string memory) {
-        bytes32 node = _reverseRecords[addr];
+    function reverseLookup(address address_) public view override returns (string memory) {
+        bytes32 node = _reverseRecords[address_];
 
         // Return empty if no reverse record or domain is expired
         if (node == bytes32(0) || !isActive(node)) {
@@ -270,11 +272,11 @@ contract DotHypeResolver is
     /**
      * @dev Gets the domain name for an address through reverse resolution (alias for reverseLookup)
      * Also checks if the address matches the address record in the resolver
-     * @param addr The address to lookup
+     * @param address_ The address to lookup
      * @return The domain name associated with the address, or empty string if not set or address doesn't match
      */
-    function getName(address addr) public view override returns (string memory) {
-        bytes32 node = _reverseRecords[addr];
+    function getName(address address_) public view override returns (string memory) {
+        bytes32 node = _reverseRecords[address_];
 
         // Return empty if no reverse record or domain is expired
         if (node == bytes32(0) || !isActive(node)) {
@@ -283,7 +285,7 @@ contract DotHypeResolver is
 
         // Check that the address record matches the lookup address
         address registeredAddress = _addresses[node][_recordVersions[node]];
-        if (registeredAddress != addr) {
+        if (registeredAddress != address_) {
             return ""; // Address doesn't match the resolver record
         }
 
@@ -298,12 +300,12 @@ contract DotHypeResolver is
     /**
      * @dev Gets a specific value for an address through reverse resolution
      * Also checks if the address matches the address record in the resolver
-     * @param addr The address to lookup
+     * @param address_ The address to lookup
      * @param key The text record key to retrieve
      * @return The text record value associated with the key for the address's domain, or empty if address doesn't match
      */
-    function getValue(address addr, string calldata key) public view override returns (string memory) {
-        bytes32 node = _reverseRecords[addr];
+    function getValue(address address_, string calldata key) public view override returns (string memory) {
+        bytes32 node = _reverseRecords[address_];
 
         // Return empty if no reverse record or domain is expired
         if (node == bytes32(0) || !isActive(node)) {
@@ -312,7 +314,7 @@ contract DotHypeResolver is
 
         // Check that the address record matches the lookup address
         address registeredAddress = _addresses[node][_recordVersions[node]];
-        if (registeredAddress != addr) {
+        if (registeredAddress != address_) {
             return ""; // Address doesn't match the resolver record
         }
 
@@ -323,11 +325,11 @@ contract DotHypeResolver is
     /**
      * @dev Checks if an address has a reverse record
      * Also checks if the address matches the address record in the resolver
-     * @param addr The address to check
+     * @param address_ The address to check
      * @return True if the address has a valid, non-expired reverse record and matches the resolver record
      */
-    function hasRecord(address addr) public view override returns (bool) {
-        bytes32 node = _reverseRecords[addr];
+    function hasRecord(address address_) public view override returns (bool) {
+        bytes32 node = _reverseRecords[address_];
 
         // Return false if no reverse record or domain is expired
         if (node == bytes32(0) || !isActive(node)) {
@@ -336,7 +338,7 @@ contract DotHypeResolver is
 
         // Check that the address record matches the lookup address
         address registeredAddress = _addresses[node][_recordVersions[node]];
-        return registeredAddress == addr;
+        return registeredAddress == address_;
     }
 
     /**
@@ -345,7 +347,13 @@ contract DotHypeResolver is
      * @param interfaceID The interface identifier
      * @return True if the interface is supported
      */
-    function supportsInterface(bytes4 interfaceID) public view virtual override returns (bool) {
+    function supportsInterface(bytes4 interfaceID)
+        public
+        view
+        virtual
+        override(Multicallable, ResolverBase)
+        returns (bool)
+    {
         return interfaceID == type(IAddrResolver).interfaceId || interfaceID == type(IAddressResolver).interfaceId
             || interfaceID == type(ITextResolver).interfaceId || interfaceID == type(IContentHashResolver).interfaceId
             || interfaceID == type(IReverseResolver).interfaceId || super.supportsInterface(interfaceID);

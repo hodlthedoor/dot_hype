@@ -265,11 +265,6 @@ contract DotHypeRegistry is ERC721, Ownable, IDotHypeRegistry {
             return super._update(to, tokenId, auth);
         }
 
-        // For controller transfers, allow it to proceed
-        if (msg.sender == controller || msg.sender == owner()) {
-            return super._update(to, tokenId, auth);
-        }
-
         // For normal transfers, check if the domain is expired
         // Prevent transfer if domain has expired
         if (_exists(tokenId) && !isActive(tokenId)) {
