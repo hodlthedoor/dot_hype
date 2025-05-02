@@ -4,6 +4,7 @@ pragma solidity ^0.8.27;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
+import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "../interfaces/IDotHypeRegistry.sol";
 import "../interfaces/IPriceOracle.sol";
 
@@ -31,6 +32,9 @@ contract DotHypeController is Ownable, EIP712 {
     error NameIsReserved(bytes32 nameHash, address reservedFor);
     error NotReserved(string name);
     error NotAuthorized(address caller, bytes32 nameHash);
+    error InvalidMerkleProof();
+    error MerkleRootNotSet();
+    error AlreadyMinted(address minter);
 
     // Registration params struct to avoid stack too deep errors
     struct RegistrationParams {
@@ -66,6 +70,12 @@ contract DotHypeController is Ownable, EIP712 {
     // Reserved names mapping: nameHash => reserved for address
     mapping(bytes32 => address) public reservedNames;
 
+    // Merkle root for allowlist
+    bytes32 public merkleRoot;
+    
+    // Tracking which addresses have used their merkle proofs
+    mapping(address => bool) public hasUsedMerkleProof;
+
     // EIP-712 type hash
     bytes32 private constant REGISTRATION_TYPEHASH = keccak256(
         "Registration(string name,address owner,uint256 duration,uint256 maxPrice,uint256 deadline,uint256 nonce)"
@@ -85,6 +95,8 @@ contract DotHypeController is Ownable, EIP712 {
     event NameReserved(bytes32 indexed nameHash, address indexed reservedFor);
     event NameReservationRemoved(bytes32 indexed nameHash);
     event ReservedNameRegistered(string name, address owner, uint256 duration);
+    event MerkleRootUpdated(bytes32 merkleRoot);
+    event MerkleProofRegistration(string name, address owner, uint256 duration);
 
     /**
      * @dev Constructor
@@ -437,6 +449,89 @@ contract DotHypeController is Ownable, EIP712 {
      */
     function setRegistry(address _registry) external onlyOwner {
         registry = IDotHypeRegistry(_registry);
+    }
+
+    /**
+     * @dev Set the merkle root for the allowlist
+     * @param _merkleRoot New merkle root
+     */
+    function setMerkleRoot(bytes32 _merkleRoot) external onlyOwner {
+        merkleRoot = _merkleRoot;
+        emit MerkleRootUpdated(_merkleRoot);
+    }
+
+    /**
+     * @dev Register a domain using a merkle proof to verify allowlist inclusion
+     * @param name Domain name to register (without .hype)
+     * @param duration Registration duration in seconds
+     * @param merkleProof Merkle proof verifying the sender is in the allowlist
+     */
+    function registerWithMerkleProof(
+        string calldata name,
+        uint256 duration,
+        bytes32[] calldata merkleProof
+    ) external payable returns (uint256 tokenId, uint256 expiry) {
+        // Check if merkle root is set
+        if (merkleRoot == bytes32(0)) {
+            revert MerkleRootNotSet();
+        }
+        
+        // Check if address has already used their merkle proof
+        if (hasUsedMerkleProof[msg.sender]) {
+            revert AlreadyMinted(msg.sender);
+        }
+
+        // Verify the merkle proof
+        bytes32 leaf = keccak256(abi.encodePacked(msg.sender));
+        if (!MerkleProof.verify(merkleProof, merkleRoot, leaf)) {
+            revert InvalidMerkleProof();
+        }
+
+        // Check if name is reserved
+        bytes32 nameHash = keccak256(bytes(name));
+        address reservedFor = reservedNames[nameHash];
+        if (reservedFor != address(0) && reservedFor != msg.sender) {
+            revert NameIsReserved(nameHash, reservedFor);
+        }
+
+        // Calculate price
+        uint256 price = calculatePrice(name, duration);
+
+        // Check if domain has max price (effectively unavailable)
+        if (price == type(uint256).max) {
+            revert CharacterLengthNotAvailable(bytes(name).length);
+        }
+
+        // Process payment
+        _processPayment(price);
+
+        // Register domain
+        (tokenId, expiry) = registry.register(name, msg.sender, duration);
+        
+        // Mark that this address has used their merkle proof
+        hasUsedMerkleProof[msg.sender] = true;
+
+        emit MerkleProofRegistration(name, msg.sender, duration);
+        emit DomainRegistered(name, msg.sender, duration, price);
+    }
+
+    /**
+     * @dev Check if an address has already minted using their merkle proof
+     * @param user Address to check
+     * @return True if the address has already minted
+     */
+    function hasAddressUsedMerkleProof(address user) external view returns (bool) {
+        return hasUsedMerkleProof[user];
+    }
+
+    /**
+     * @dev Reset merkle proof usage for addresses (admin only)
+     * @param users Array of addresses to reset
+     */
+    function resetMerkleProofUsage(address[] calldata users) external onlyOwner {
+        for (uint i = 0; i < users.length; i++) {
+            hasUsedMerkleProof[users[i]] = false;
+        }
     }
 
     /**

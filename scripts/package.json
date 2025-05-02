@@ -1,0 +1,14 @@
+{
+  "name": "merkle-proof-generator",
+  "version": "1.0.0",
+  "description": "Generate merkle proofs for DotHype whitelisting",
+  "main": "generate-merkle-proofs.js",
+  "scripts": {
+    "generate": "node generate-merkle-proofs.js"
+  },
+  "dependencies": {
+    "ethers": "^5.7.2",
+    "keccak256": "^1.0.6",
+    "merkletreejs": "^0.3.10"
+  }
+}
