@@ -89,11 +89,11 @@ contract MinimalDeployController is Script {
     function run() public {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
-        
+
         // Get addresses from environment
         address registryAddress = vm.envAddress("REGISTRY_ADDRESS");
         address mockOracleAddress = vm.envAddress("MOCK_ORACLE_ADDRESS");
-        
+
         vm.startBroadcast(deployerPrivateKey);
         DotHypeController controller = new DotHypeController(
             registryAddress,
@@ -114,10 +114,10 @@ contract MinimalDeployResolver is Script {
     function run() public {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
-        
+
         // Get registry address from environment
         address registryAddress = vm.envAddress("REGISTRY_ADDRESS");
-        
+
         vm.startBroadcast(deployerPrivateKey);
         DotHypeResolver resolver = new DotHypeResolver(deployer, registryAddress);
         console.log("Resolver deployed at:", address(resolver));
@@ -132,11 +132,11 @@ contract MinimalDeployResolver is Script {
 contract SetController is Script {
     function run() public {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        
+
         // Get addresses from environment
         address registryAddress = vm.envAddress("REGISTRY_ADDRESS");
         address controllerAddress = vm.envAddress("CONTROLLER_ADDRESS");
-        
+
         vm.startBroadcast(deployerPrivateKey);
         DotHypeRegistry registry = DotHypeRegistry(registryAddress);
         registry.setController(controllerAddress);
@@ -152,20 +152,20 @@ contract SetController is Script {
 contract SetPricing is Script {
     function run() public {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        
+
         // Get controller address from environment
         address payable controllerAddress = payable(vm.envAddress("CONTROLLER_ADDRESS"));
-        
+
         vm.startBroadcast(deployerPrivateKey);
         DotHypeController controller = DotHypeController(controllerAddress);
-        
+
         controller.setAnnualPrice(1, type(uint256).max); // 1-char - unavailable
         controller.setAnnualPrice(2, type(uint256).max); // 2-char - unavailable
-        controller.setAnnualPrice(3, 1000 * 1e18);       // 3-char - $1000/year
-        controller.setAnnualPrice(4, 100 * 1e18);        // 4-char - $100/year
-        controller.setAnnualPrice(5, 20 * 1e18);         // 5+ char - $20/year
-        
+        controller.setAnnualPrice(3, 1000 * 1e18); // 3-char - $1000/year
+        controller.setAnnualPrice(4, 100 * 1e18); // 4-char - $100/year
+        controller.setAnnualPrice(5, 20 * 1e18); // 5+ char - $20/year
+
         console.log("Pricing configured");
         vm.stopBroadcast();
     }
-} 
+}

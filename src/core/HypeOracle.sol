@@ -9,7 +9,7 @@ import "../interfaces/IPriceOracle.sol";
  */
 contract HypeOracle is IPriceOracle {
     address constant PRECOMPILE = 0x0000000000000000000000000000000000000808; // Using 0x808 for spot prices
-    uint32 constant PAIR_ID = 107; 
+    uint32 constant PAIR_ID = 107;
     uint256 constant SCALE = 1e6; // 10^(8 − szDecimals)  (szDecimals = 2)
 
     /**
@@ -30,12 +30,11 @@ contract HypeOracle is IPriceOracle {
         // Use standard abi.encode as used in hypercore-sim
         bytes memory data = abi.encode(PAIR_ID);
         (bool ok, bytes memory ret) = PRECOMPILE.staticcall(data);
-        
+
         // Check if the call was successful
         require(ok, "SpotPx precompile call failed");
-        
+
         // Use abi.decode to extract the uint64 value as done in hypercore-sim
         price = abi.decode(ret, (uint64));
     }
 }
-

@@ -72,7 +72,7 @@ contract DotHypeController is Ownable, EIP712 {
 
     // Merkle root for allowlist
     bytes32 public merkleRoot;
-    
+
     // Tracking which addresses have used their merkle proofs
     mapping(address => bool) public hasUsedMerkleProof;
 
@@ -333,7 +333,7 @@ contract DotHypeController is Ownable, EIP712 {
     function setReservation(string calldata name, address reservedFor) external onlyOwner {
         bytes32 nameHash = keccak256(bytes(name));
         reservedNames[nameHash] = reservedFor;
-        
+
         if (reservedFor == address(0)) {
             emit NameReservationRemoved(nameHash);
         } else {
@@ -352,7 +352,7 @@ contract DotHypeController is Ownable, EIP712 {
         for (uint256 i = 0; i < names.length; i++) {
             bytes32 nameHash = keccak256(bytes(names[i]));
             reservedNames[nameHash] = reservedAddresses[i];
-            
+
             if (reservedAddresses[i] == address(0)) {
                 emit NameReservationRemoved(nameHash);
             } else {
@@ -466,16 +466,16 @@ contract DotHypeController is Ownable, EIP712 {
      * @param duration Registration duration in seconds
      * @param merkleProof Merkle proof verifying the sender is in the allowlist
      */
-    function registerWithMerkleProof(
-        string calldata name,
-        uint256 duration,
-        bytes32[] calldata merkleProof
-    ) external payable returns (uint256 tokenId, uint256 expiry) {
+    function registerWithMerkleProof(string calldata name, uint256 duration, bytes32[] calldata merkleProof)
+        external
+        payable
+        returns (uint256 tokenId, uint256 expiry)
+    {
         // Check if merkle root is set
         if (merkleRoot == bytes32(0)) {
             revert MerkleRootNotSet();
         }
-        
+
         // Check if address has already used their merkle proof
         if (hasUsedMerkleProof[msg.sender]) {
             revert AlreadyMinted(msg.sender);
@@ -507,7 +507,7 @@ contract DotHypeController is Ownable, EIP712 {
 
         // Register domain
         (tokenId, expiry) = registry.register(name, msg.sender, duration);
-        
+
         // Mark that this address has used their merkle proof
         hasUsedMerkleProof[msg.sender] = true;
 
@@ -529,7 +529,7 @@ contract DotHypeController is Ownable, EIP712 {
      * @param users Array of addresses to reset
      */
     function resetMerkleProofUsage(address[] calldata users) external onlyOwner {
-        for (uint i = 0; i < users.length; i++) {
+        for (uint256 i = 0; i < users.length; i++) {
             hasUsedMerkleProof[users[i]] = false;
         }
     }

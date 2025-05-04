@@ -14,42 +14,42 @@ contract LookupDomain is Script {
         // Required environment variables
         address registryAddress = vm.envAddress("REGISTRY_ADDRESS");
         address resolverAddress = vm.envAddress("RESOLVER_ADDRESS");
-        
+
         // Domain to look up
         string memory domainName = vm.envOr("DOMAIN_NAME", string("myname"));
-        
+
         console.log("Looking up domain:", domainName, ".hype");
-        
+
         // Get contracts
         DotHypeRegistry registry = DotHypeRegistry(registryAddress);
         DotHypeResolver resolver = DotHypeResolver(resolverAddress);
-        
+
         // Calculate token ID
         uint256 tokenId = registry.nameToTokenId(domainName);
         console.log("Token ID:", tokenId);
-        
+
         // Convert tokenId to node (bytes32) for resolver
         bytes32 node = bytes32(tokenId);
-        
+
         // Check if domain exists and get owner
         try registry.ownerOf(tokenId) returns (address owner) {
             console.log("Owner:", owner);
-            
+
             // Get expiry
             try registry.expiryOf(tokenId) returns (uint256 expiry) {
                 console.log("Expires at:", expiry);
-                
+
                 // Format expiry date
                 string memory expiryDate = vm.toString(expiry);
                 console.log("Expiry Date (timestamp):", expiryDate);
-                
+
                 // Check if domain is expired
                 if (block.timestamp > expiry) {
                     console.log("Status: EXPIRED");
                 } else {
                     console.log("Status: ACTIVE");
                 }
-                
+
                 // Get days remaining
                 if (expiry > block.timestamp) {
                     uint256 daysRemaining = (expiry - block.timestamp) / (24 * 60 * 60);
@@ -58,7 +58,7 @@ contract LookupDomain is Script {
             } catch {
                 console.log("Could not retrieve expiry information");
             }
-            
+
             // Try to get resolved address using the node (bytes32)
             try resolver.addr(node) returns (address payable resolvedAddress) {
                 if (resolvedAddress != address(0)) {
@@ -73,4 +73,4 @@ contract LookupDomain is Script {
             console.log("Domain not registered");
         }
     }
-} 
+}

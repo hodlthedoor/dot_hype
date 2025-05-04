@@ -11,16 +11,16 @@ contract DeployTestContract is Script {
     function run() external {
         // Get private key from environment variable
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        
+
         // Start broadcast (all subsequent calls will be part of the transaction)
         vm.startBroadcast(deployerPrivateKey);
-        
+
         // Deploy the contract with constructor arguments
         TestContract testContract = new TestContract("Hello, Hyperliquid!", 42);
-        
+
         // End broadcast
         vm.stopBroadcast();
-        
+
         // Log the address for verification
         console.log("TestContract deployed at: %s", address(testContract));
         console.log("");
@@ -29,4 +29,4 @@ contract DeployTestContract is Script {
         console.log("--constructor-args $(cast abi-encode \"constructor(string,uint256)\" \"Hello, Hyperliquid!\" 42)");
         console.log("--chain-id 998 --verifier sourcify");
     }
-} 
+}

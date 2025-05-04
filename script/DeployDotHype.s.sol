@@ -46,7 +46,7 @@ contract DeployDotHype is Script {
     function run() public {
         // Get the private key from the environment
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        
+
         // Start broadcasting transactions
         vm.startBroadcast(deployerPrivateKey);
 
@@ -59,11 +59,11 @@ contract DeployDotHype is Script {
         MockOracle mockOracle = new MockOracle();
         console.log("MockOracle deployed at:", address(mockOracle));
         console.log("Mock conversion rate: 1 HYPE = $5000");
-        
+
         // B. Deploy the real HypeOracle (for future use)
         HypeOracle hypeOracle = new HypeOracle();
         console.log("HypeOracle deployed at:", address(hypeOracle));
-        
+
         // Test mock oracle conversion rate
         uint256 oneUsd = 1e18; // $1 with 18 decimals
         uint256 oneUsdInHype = mockOracle.usdToHype(oneUsd);
@@ -94,28 +94,28 @@ contract DeployDotHype is Script {
         // 5. Deploy the Resolver
         DotHypeResolver resolver = new DotHypeResolver(deployer, address(registry));
         console.log("DotHypeResolver deployed at:", address(resolver));
-        
+
         // 6. Set up pricing in the Controller
         // These are example annual prices in USD (1e18 = $1)
         // Index corresponds to character length: [not used, 1-char, 2-char, 3-char, 4-char, 5+ char]
         uint256[6] memory annualPrices = [
-            0,                   // Not used
-            type(uint256).max,   // 1-character domains - unavailable
-            type(uint256).max,   // 2-character domains - unavailable
-            1000 * 1e18,         // 3-character domains - $1000/year
-            100 * 1e18,          // 4-character domains - $100/year
-            20 * 1e18            // 5+ character domains - $20/year
+            0, // Not used
+            type(uint256).max, // 1-character domains - unavailable
+            type(uint256).max, // 2-character domains - unavailable
+            1000 * 1e18, // 3-character domains - $1000/year
+            100 * 1e18, // 4-character domains - $100/year
+            20 * 1e18 // 5+ character domains - $20/year
         ];
-        
+
         // Set prices in the controller
         for (uint256 i = 1; i < annualPrices.length; i++) {
             controller.setAnnualPrice(i, annualPrices[i]);
             console.log("Set price for", i, "character domains:", annualPrices[i]);
         }
-        
+
         // Stop broadcasting transactions
         vm.stopBroadcast();
-        
+
         console.log("DotHype deployment complete!");
         console.log("----------------------------------------------------------------");
         console.log("Registry:   ", address(registry));
@@ -130,4 +130,4 @@ contract DeployDotHype is Script {
         console.log("MockOracle conversion rate: 1 HYPE = $5000");
         console.log("$1 equals", oneUsdInHype, "HYPE tokens");
     }
-} 
+}

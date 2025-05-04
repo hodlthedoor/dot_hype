@@ -38,4 +38,4 @@ contract TestContract {
     function getValue() public view returns (uint256) {
         return value;
     }
-} 
+}
