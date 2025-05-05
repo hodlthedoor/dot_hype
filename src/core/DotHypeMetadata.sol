@@ -23,7 +23,6 @@ contract DotHypeMetadata is Ownable, IDotHypeMetadata {
 
     /**
      * @dev Returns the metadata for a specific token ID
-     * Note: tokenId parameter is unused in this implementation
      * @param name The name associated with the token
      * @return The complete URI for the token metadata
      */

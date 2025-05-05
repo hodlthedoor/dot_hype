@@ -15,8 +15,10 @@ contract ReserveDomain is Script {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address controllerAddress = payable(vm.envAddress("CONTROLLER_ADDRESS"));
 
+        console.log("Controller address:", controllerAddress);
+
         // Domain to reserve
-        string memory domainName = vm.envOr("DOMAIN_NAME", string("foobar"));
+        string memory domainName = vm.envOr("DOMAIN_NAME", string("samtest"));
         address reservedFor = vm.envOr("RESERVED_FOR", vm.addr(deployerPrivateKey));
 
         console.log("Reserving domain:", domainName, ".hype");
@@ -59,7 +61,7 @@ contract RegisterReservedDomain is Script {
         address payable controllerAddress = payable(vm.envAddress("CONTROLLER_ADDRESS"));
 
         // Domain to register
-        string memory domainName = vm.envOr("DOMAIN_NAME", string("foobar"));
+        string memory domainName = vm.envOr("DOMAIN_NAME", string("samtest"));
         uint256 durationDays = vm.envOr("DURATION_DAYS", uint256(365));
 
         // Convert duration to seconds

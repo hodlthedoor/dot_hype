@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Base64.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "../interfaces/IDotHypeMetadata.sol";
+import "../interfaces/IDotHypeRegistry.sol";
 
 /**
  * @title DotHypeOnchainMetadata
@@ -15,11 +16,11 @@ contract DotHypeOnchainMetadata is Ownable, IDotHypeMetadata {
     using Strings for address;
 
     // SVG configuration variables
-    string public backgroundColor = "#141420"; // Deeper blue background
+    string public backgroundColor = "#072723"; // Dark green background
     string public textColor = "#FFFFFF";       // White text
     string public accentColor = "#FF5F1F";     // Orange accent color
     string public logoColor = "#97FCE4";       // Hyperliquid logo color
-    string public circleColor = "#1D1D30";     // Subtle inner circle color
+    string public circleColor = "#0A352E";     // Subtle inner circle color
     
     // Font size and style configuration
     uint256 public mainFontSize = 40;
@@ -29,12 +30,18 @@ contract DotHypeOnchainMetadata is Ownable, IDotHypeMetadata {
     // Design settings
     uint256 public logoSize = 80;
     uint256 public circleRadius = 170;
+    
+    // Registry reference
+    IDotHypeRegistry public registry;
 
     /**
      * @dev Constructor
      * @param _owner Initial owner of the contract
+     * @param _registry Address of the DotHypeRegistry contract
      */
-    constructor(address _owner) Ownable(_owner) {}
+    constructor(address _owner, address _registry) Ownable(_owner) {
+        registry = IDotHypeRegistry(_registry);
+    }
 
     /**
      * @dev Returns the metadata for a specific token ID as a base64 encoded JSON
@@ -49,8 +56,11 @@ contract DotHypeOnchainMetadata is Ownable, IDotHypeMetadata {
         // Base64 encode the SVG
         string memory encodedSVG = Base64.encode(bytes(svgImage));
         
+        
+        uint256 expiry = registry.expiryOf(tokenId);
+        
         // Generate and encode the JSON metadata
-        string memory json = generateJSON(name, encodedSVG, tokenId);
+        string memory json = generateJSON(name, encodedSVG, tokenId, expiry);
         string memory encodedJSON = Base64.encode(bytes(json));
         
         // Return the data URI
@@ -74,11 +84,26 @@ contract DotHypeOnchainMetadata is Ownable, IDotHypeMetadata {
         return string(
             abi.encodePacked(
                 '<svg xmlns="http://www.w3.org/2000/svg" width="500" height="500" viewBox="0 0 500 500">',
+                // Define filters
+                '<defs>',
+                '<filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">',
+                '<feGaussianBlur in="SourceAlpha" stdDeviation="10"/>',
+                '<feOffset dx="0" dy="0" result="offsetblur"/>',
+                '<feComponentTransfer>',
+                '<feFuncA type="linear" slope="0.3"/>',
+                '</feComponentTransfer>',
+                '<feMerge>',
+                '<feMergeNode/>',
+                '<feMergeNode in="SourceGraphic"/>',
+                '</feMerge>',
+                '</filter>',
+                '</defs>',
+                
                 // Background
                 '<rect width="500" height="500" fill="', backgroundColor, '" />',
                 
-                // Inner circle for depth
-                '<circle cx="250" cy="250" r="', circleRadius.toString(), '" fill="', circleColor, '" />',
+                // Inner circle with shadow
+                '<circle cx="250" cy="250" r="', circleRadius.toString(), '" fill="', circleColor, '" filter="url(#shadow)" />',
                 
                 // Accent circle
                 '<circle cx="250" cy="250" r="', circleRadius.toString(), '" fill="none" stroke="', accentColor, '" stroke-width="2" />',
@@ -112,12 +137,14 @@ contract DotHypeOnchainMetadata is Ownable, IDotHypeMetadata {
      * @param name The domain name
      * @param encodedSVG The base64 encoded SVG
      * @param tokenId The token ID
+     * @param expiry The expiry timestamp of the domain (0 if not set)
      * @return The JSON string
      */
     function generateJSON(
         string memory name,
         string memory encodedSVG,
-        uint256 tokenId
+        uint256 tokenId,
+        uint256 expiry
     ) public pure returns (string memory) {
         return string(
             abi.encodePacked(
@@ -135,9 +162,12 @@ contract DotHypeOnchainMetadata is Ownable, IDotHypeMetadata {
                 '{"trait_type":"Length","value":',
                 uint256(bytes(name).length).toString(),
                 '},',
-                '{"trait_type":"Token ID","value":',
+                '{"trait_type":"Token ID","value":"',
                 tokenId.toString(),
-                '}',
+                '"},',
+                '{"trait_type":"Expiry","value":"',
+                Strings.toString(expiry),
+                '"}',
                 ']}'
             )
         );

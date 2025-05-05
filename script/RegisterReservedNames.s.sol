@@ -13,6 +13,7 @@ contract RegisterReservedNames is Script {
         // Get the controller address from the environment
         address payable controllerAddress = payable(vm.envAddress("CONTROLLER_ADDRESS"));
 
+        console.log("Controller address:", controllerAddress);
         // Get the private key from the environment
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
 

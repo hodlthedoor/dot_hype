@@ -1,136 +1,80 @@
-# DotHype Deployment Guide for Hyperliquid
+# Deployment Scripts for DotHype
 
-This guide outlines the steps to deploy the DotHype domain name system to the Hyperliquid blockchain.
+This directory contains deployment scripts for the DotHype naming service contracts.
 
-## Prerequisites
+## Deploy Onchain Metadata Contract
 
-1. Set up your environment variables:
-   ```bash
-   export PRIVATE_KEY=your_private_key
-   export RPC_URL=https://rpc.hyperliquid-testnet.xyz/evm
+The `DeployOnchainMetadata.s.sol` script deploys the new onchain metadata contract and updates the registry to use it for all .hype domains.
+
+### Prerequisites
+
+1. Set up your environment variables in a `.env` file:
+
+   ```
+   PRIVATE_KEY=your_private_key_here
+   REGISTRY_ADDRESS=0x29ecB1E27a15037442cC97256f05F45f55EF10d0
+   ETHERSCAN_API_KEY=your_etherscan_api_key_here
    ```
 
-## Step-by-Step Deployment
+2. Make sure you have Foundry installed and updated.
 
-### 1. Deploy the Registry
+### Deployment Steps
 
-```bash
-forge script script/MinimalDeploy.s.sol:MinimalDeployRegistry --rpc-url $RPC_URL --broadcast --verify
-```
-
-After deployment, set the registry address in your environment:
-
-```bash
-export REGISTRY_ADDRESS=<deployed_registry_address>
-```
-
-### 2. Deploy the MockOracle (for fixed pricing)
-
-```bash
-forge script script/MinimalDeploy.s.sol:MinimalDeployMockOracle --rpc-url $RPC_URL --broadcast --verify
-```
-
-Set the MockOracle address:
-
-```bash
-export MOCK_ORACLE_ADDRESS=<deployed_mock_oracle_address>
-```
-
-### 3. Deploy the HypeOracle (for Hyperliquid pricing)
-
-```bash
-forge script script/MinimalDeploy.s.sol:MinimalDeployHypeOracle --rpc-url $RPC_URL --broadcast --verify
-```
-
-Set the HypeOracle address:
-
-```bash
-export HYPE_ORACLE_ADDRESS=<deployed_hype_oracle_address>
-```
-
-### 4. Deploy the Controller (using the MockOracle initially)
-
-```bash
-forge script script/MinimalDeploy.s.sol:MinimalDeployController --rpc-url $RPC_URL --broadcast --verify
-```
-
-Set the Controller address:
-
-```bash
-export CONTROLLER_ADDRESS=<deployed_controller_address>
-```
-
-### 5. Deploy the Resolver
-
-```bash
-forge script script/MinimalDeploy.s.sol:MinimalDeployResolver --rpc-url $RPC_URL --broadcast --verify
-```
-
-Set the Resolver address:
-
-```bash
-export RESOLVER_ADDRESS=<deployed_resolver_address>
-```
-
-### 6. Set the Controller in the Registry
-
-```bash
-forge script script/MinimalDeploy.s.sol:SetController --rpc-url $RPC_URL --broadcast
-```
-
-### 7. Configure Pricing in the Controller
-
-```bash
-forge script script/MinimalDeploy.s.sol:SetPricing --rpc-url $RPC_URL --broadcast
-```
-
-## Switching Oracles (Optional)
-
-To switch from the MockOracle to the HypeOracle later:
-
-1. Create a new script:
-
-```solidity
-// SwitchToHypeOracle.s.sol
-contract SwitchToHypeOracle is Script {
-    function run() public {
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        address controllerAddress = vm.envAddress("CONTROLLER_ADDRESS");
-        address hypeOracleAddress = vm.envAddress("HYPE_ORACLE_ADDRESS");
-
-        vm.startBroadcast(deployerPrivateKey);
-        DotHypeController controller = DotHypeController(payable(controllerAddress));
-        controller.setPriceOracle(hypeOracleAddress);
-        console.log("Controller now using HypeOracle at:", hypeOracleAddress);
-        vm.stopBroadcast();
-    }
-}
-```
-
-2. Run the script:
-
-```bash
-forge script script/SwitchToHypeOracle.s.sol --rpc-url $RPC_URL --broadcast
-```
-
-## Troubleshooting
-
-### Gas Limit Issues
-
-If you encounter "exceeds block gas limit" errors:
-
-1. Try increasing the gas limit in your forge script command:
+1. Load your environment variables:
 
    ```bash
-   forge script script/MinimalDeploy.s.sol:MinimalDeployRegistry --rpc-url $RPC_URL --broadcast --gas-limit 10000000
+   source .env
    ```
 
-2. If that doesn't work, try lowering the `optimizer_runs` setting in foundry.toml temporarily for deployment.
+2. Run the script on the target network (e.g., Hyperliquid testnet):
 
-### Contract Verification
+   ```bash
+   forge script script/DeployOnchainMetadata.s.sol \
+     --rpc-url https://rpc.hyperliquid-testnet.xyz/evm \
+     --chain-id 998 \
+     --broadcast \
+     --verify \
+     --verifier sourcify
+   ```
 
-For verification on Hyperliquid via Sourcify:
+3. For mainnet deployment:
+   ```bash
+   forge script script/DeployOnchainMetadata.s.sol \
+     --rpc-url <MAINNET_RPC_URL> \
+     --chain-id <MAINNET_CHAIN_ID> \
+     --broadcast \
+     --verify \
+     --verifier sourcify
+   ```
 
-```bash
-forge verify-contract --chain hyperliquid-testnet <CONTRACT_ADDRESS> <CONTRACT_NAME>
-```
+### What the Script Does
+
+1. Deploys the `DotHypeOnchainMetadata` contract with dynamic SVG generation
+2. Updates the existing registry to use the new metadata provider
+3. Outputs verification instructions for the contract
+
+### After Deployment
+
+Once deployed, all .hype domains will automatically use the new onchain metadata, which includes:
+
+- Fully on-chain SVG images
+- Dynamic styling based on domain name length
+- The Hyperliquid logo integrated into the design
+- Custom colors and styling
+
+This provides a permanent, immutable metadata solution for all .hype domains without relying on any external servers.
+
+## Customizing the Metadata
+
+After deployment, the contract owner can customize various aspects of the metadata:
+
+1. Background color: `setBackgroundColor(string calldata _backgroundColor)`
+2. Text color: `setTextColor(string calldata _textColor)`
+3. Accent color: `setAccentColor(string calldata _accentColor)`
+4. Logo color: `setLogoColor(string calldata _logoColor)`
+5. Circle color: `setCircleColor(string calldata _circleColor)`
+6. Font sizes: `setFontSizes(uint256 _mainFontSize, uint256 _secondaryFontSize)`
+7. Font family: `setFontFamily(string calldata _fontFamily)`
+8. Design settings: `setDesignSettings(uint256 _logoSize, uint256 _circleRadius)`
+
+These functions can be called through a contract management interface or directly using Etherscan.
