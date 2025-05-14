@@ -17,7 +17,6 @@ import "../interfaces/IPriceOracle.sol";
 contract DotHypeController is Ownable, EIP712 {
     using ECDSA for bytes32;
 
-    // Custom errors
     error SignatureExpired();
     error InvalidSignature();
     error InvalidSigner();
@@ -36,7 +35,6 @@ contract DotHypeController is Ownable, EIP712 {
     error MerkleRootNotSet();
     error AlreadyMinted(address minter);
 
-    // Registration params struct to avoid stack too deep errors
     struct RegistrationParams {
         string name;
         address owner;
@@ -46,45 +44,24 @@ contract DotHypeController is Ownable, EIP712 {
         bytes signature;
     }
 
-    // Registry contract
     IDotHypeRegistry public registry;
-
-    // Signer address authorized to sign registration requests
     address public signer;
 
-    // Annual prices array, indexed by character length
-    // Index 0: not used
-    // Index 1: 1-character domains - price in USD (1e18 = $1)
-    // Index 2: 2-character domains - price in USD
-    // Index 3: 3-character domains - price in USD
-    // Index 4: 4-character domains - price in USD
-    // Index 5: 5+ character domains - price in USD
     uint256[6] public annualPrices;
 
-    // Price oracle for USD pricing
     IPriceOracle public priceOracle;
-
-    // Payment recipient
     address public paymentRecipient;
 
-    // Reserved names mapping: nameHash => reserved for address
     mapping(bytes32 => address) public reservedNames;
-
-    // Merkle root for allowlist
     bytes32 public merkleRoot;
-
-    // Tracking which addresses have used their merkle proofs
     mapping(address => bool) public hasUsedMerkleProof;
 
-    // EIP-712 type hash
     bytes32 private constant REGISTRATION_TYPEHASH = keccak256(
         "Registration(string name,address owner,uint256 duration,uint256 maxPrice,uint256 deadline,uint256 nonce)"
     );
 
-    // Nonce mapping per address to prevent replay attacks
     mapping(address => uint256) public nonces;
 
-    // Events
     event DomainRegistered(string name, address owner, uint256 duration, uint256 price);
     event DomainRenewed(uint256 tokenId, uint256 duration, uint256 price);
     event SignerUpdated(address newSigner);
@@ -114,7 +91,7 @@ contract DotHypeController is Ownable, EIP712 {
         registry = IDotHypeRegistry(_registry);
         signer = _signer;
         priceOracle = IPriceOracle(_priceOracle);
-        paymentRecipient = _owner; // Default payment recipient is the owner
+        paymentRecipient = _owner;
     }
 
     /**
@@ -135,18 +112,15 @@ contract DotHypeController is Ownable, EIP712 {
         uint256 deadline,
         bytes calldata signature
     ) internal returns (bool) {
-        // Check if signature is expired
         require(block.timestamp <= deadline, SignatureExpired());
 
         uint256 nonce = nonces[owner]++;
 
-        // Verify EIP-712 signature
         bytes32 structHash = keccak256(
             abi.encode(REGISTRATION_TYPEHASH, keccak256(bytes(name)), owner, duration, maxPrice, deadline, nonce)
         );
         bytes32 hash = _hashTypedDataV4(structHash);
 
-        // Recover signer and check
         address recoveredSigner = ECDSA.recover(hash, signature);
         require(recoveredSigner == signer, InvalidSigner());
 
@@ -159,16 +133,13 @@ contract DotHypeController is Ownable, EIP712 {
      * @return The processed payment amount
      */
     function _processPayment(uint256 price) internal returns (uint256) {
-        // Check if payment is sufficient
         require(msg.value >= price, InsufficientPayment(price, msg.value));
 
-        // Forward payment to the recipient
         if (price > 0 && paymentRecipient != address(0)) {
             (bool success,) = paymentRecipient.call{value: price}("");
             require(success, FundsTransferFailed());
         }
 
-        // Refund excess payment
         if (msg.value > price) {
             (bool success,) = payable(msg.sender).call{value: msg.value - price}("");
             require(success, FundsTransferFailed());
@@ -194,31 +165,24 @@ contract DotHypeController is Ownable, EIP712 {
         uint256 deadline,
         bytes calldata signature
     ) external payable returns (uint256 tokenId, uint256 expiry) {
-        // Check if name is reserved
         bytes32 nameHash = keccak256(bytes(name));
         address reservedFor = reservedNames[nameHash];
         if (reservedFor != address(0) && reservedFor != owner) {
             revert NameIsReserved(nameHash, reservedFor);
         }
 
-        // Verify signature
         _verifySignature(name, owner, duration, maxPrice, deadline, signature);
 
-        // Calculate price
         uint256 price = calculatePrice(name, duration);
 
-        // Check if domain has max price (effectively unavailable)
         if (price == type(uint256).max) {
             revert CharacterLengthNotAvailable(bytes(name).length);
         }
 
-        // Check if price is acceptable
         require(price <= maxPrice, InsufficientPayment(price, maxPrice));
 
-        // Process payment
         _processPayment(price);
 
-        // Register domain
         (tokenId, expiry) = registry.register(name, owner, duration);
 
         emit DomainRegistered(name, owner, duration, price);
@@ -237,7 +201,6 @@ contract DotHypeController is Ownable, EIP712 {
         bytes32 nameHash = keccak256(bytes(name));
         address reservedFor = reservedNames[nameHash];
 
-        // Check if the name is reserved for the sender
         if (reservedFor == address(0)) {
             revert NotReserved(name);
         }
@@ -245,16 +208,12 @@ contract DotHypeController is Ownable, EIP712 {
             revert NotAuthorized(msg.sender, nameHash);
         }
 
-        // Calculate price
         uint256 price = calculatePrice(name, duration);
 
-        // Process payment
         _processPayment(price);
 
-        // Register domain
         (tokenId, expiry) = registry.register(name, msg.sender, duration);
 
-        // Clear the reservation by setting it to address(0)
         reservedNames[nameHash] = address(0);
 
         emit ReservedNameRegistered(name, msg.sender, duration);
@@ -267,14 +226,11 @@ contract DotHypeController is Ownable, EIP712 {
      * @param duration Renewal duration in seconds
      */
     function renew(uint256 tokenId, uint256 duration) external payable returns (uint256 expiry) {
-        // Calculate price
         string memory name = registry.tokenIdToName(tokenId);
         uint256 price = calculatePrice(name, duration);
 
-        // Process payment
         _processPayment(price);
 
-        // Renew domain
         expiry = registry.renew(tokenId, duration);
 
         emit DomainRenewed(tokenId, duration, price);
@@ -299,27 +255,20 @@ contract DotHypeController is Ownable, EIP712 {
         bytes memory nameBytes = bytes(name);
         uint256 charCount = nameBytes.length;
 
-        // Get price index (1-5, with 5 used for all longer names)
         uint256 priceIndex = charCount < 5 ? charCount : 5;
 
-        // Make sure price index is valid (greater than 0)
         require(priceIndex > 0, InvalidCharacterCount(charCount));
 
-        // Get annual price in USD (1e18 = $1)
         uint256 annualPrice = annualPrices[priceIndex];
 
-        // Check if price is set
         require(annualPrice > 0, PricingNotSet());
 
-        // Handle special case for effectively unavailable domains (type(uint256).max)
         if (annualPrice == type(uint256).max) {
             return type(uint256).max;
         }
 
-        // Calculate USD price based on duration (proportional to 365 days)
         uint256 usdPrice = (annualPrice * duration) / 365 days;
 
-        // Convert USD price to HYPE tokens using the oracle
         price = priceOracle.usdToHype(usdPrice);
 
         return price;
@@ -389,10 +338,8 @@ contract DotHypeController is Ownable, EIP712 {
      * @param annualPrice Annual price in USD (1e18 = $1)
      */
     function setAnnualPrice(uint256 charCount, uint256 annualPrice) external onlyOwner {
-        // Ensure charCount is within valid range (1-5)
         require(charCount >= 1 && charCount <= 5, InvalidCharacterCount(charCount));
 
-        // Set the price
         annualPrices[charCount] = annualPrice;
 
         emit AnnualPriceUpdated(charCount, annualPrice);
@@ -471,44 +418,35 @@ contract DotHypeController is Ownable, EIP712 {
         payable
         returns (uint256 tokenId, uint256 expiry)
     {
-        // Check if merkle root is set
         if (merkleRoot == bytes32(0)) {
             revert MerkleRootNotSet();
         }
 
-        // Check if address has already used their merkle proof
         if (hasUsedMerkleProof[msg.sender]) {
             revert AlreadyMinted(msg.sender);
         }
 
-        // Verify the merkle proof
         bytes32 leaf = keccak256(abi.encodePacked(msg.sender));
         if (!MerkleProof.verify(merkleProof, merkleRoot, leaf)) {
             revert InvalidMerkleProof();
         }
 
-        // Check if name is reserved
         bytes32 nameHash = keccak256(bytes(name));
         address reservedFor = reservedNames[nameHash];
         if (reservedFor != address(0) && reservedFor != msg.sender) {
             revert NameIsReserved(nameHash, reservedFor);
         }
 
-        // Calculate price
         uint256 price = calculatePrice(name, duration);
 
-        // Check if domain has max price (effectively unavailable)
         if (price == type(uint256).max) {
             revert CharacterLengthNotAvailable(bytes(name).length);
         }
 
-        // Process payment
         _processPayment(price);
 
-        // Register domain
         (tokenId, expiry) = registry.register(name, msg.sender, duration);
 
-        // Mark that this address has used their merkle proof
         hasUsedMerkleProof[msg.sender] = true;
 
         emit MerkleProofRegistration(name, msg.sender, duration);
