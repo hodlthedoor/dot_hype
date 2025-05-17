@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "../interfaces/IDotHypeRegistry.sol";
 import "../interfaces/IPriceOracle.sol";
+import "forge-std/console.sol";
 
 /**
  * @title DotHypeController
@@ -34,6 +35,7 @@ contract DotHypeController is Ownable, EIP712 {
     error InvalidMerkleProof();
     error MerkleRootNotSet();
     error AlreadyMinted(address minter);
+    error DurationTooShort(uint256 provided, uint256 minimum);
 
     struct RegistrationParams {
         string name;
@@ -48,6 +50,7 @@ contract DotHypeController is Ownable, EIP712 {
     address public signer;
 
     uint256[6] public annualPrices;
+    uint256[6] public annualRenewalPrices;
 
     IPriceOracle public priceOracle;
     address public paymentRecipient;
@@ -59,6 +62,8 @@ contract DotHypeController is Ownable, EIP712 {
     bytes32 private constant REGISTRATION_TYPEHASH = keccak256(
         "Registration(string name,address owner,uint256 duration,uint256 maxPrice,uint256 deadline,uint256 nonce)"
     );
+
+    uint256 public constant MIN_REGISTRATION_LENGTH = 365 days;
 
     mapping(address => uint256) public nonces;
 
@@ -74,6 +79,7 @@ contract DotHypeController is Ownable, EIP712 {
     event ReservedNameRegistered(string name, address owner, uint256 duration);
     event MerkleRootUpdated(bytes32 merkleRoot);
     event MerkleProofRegistration(string name, address owner, uint256 duration);
+    event AnnualRenewalPriceUpdated(uint256 charCount, uint256 price);
 
     /**
      * @dev Constructor
@@ -165,6 +171,10 @@ contract DotHypeController is Ownable, EIP712 {
         uint256 deadline,
         bytes calldata signature
     ) external payable returns (uint256 tokenId, uint256 expiry) {
+        if (duration < MIN_REGISTRATION_LENGTH) {
+            revert DurationTooShort(duration, MIN_REGISTRATION_LENGTH);
+        }
+
         bytes32 nameHash = keccak256(bytes(name));
         address reservedFor = reservedNames[nameHash];
         if (reservedFor != address(0) && reservedFor != owner) {
@@ -198,6 +208,10 @@ contract DotHypeController is Ownable, EIP712 {
         payable
         returns (uint256 tokenId, uint256 expiry)
     {
+        if (duration < MIN_REGISTRATION_LENGTH) {
+            revert DurationTooShort(duration, MIN_REGISTRATION_LENGTH);
+        }
+
         bytes32 nameHash = keccak256(bytes(name));
         address reservedFor = reservedNames[nameHash];
 
@@ -227,7 +241,7 @@ contract DotHypeController is Ownable, EIP712 {
      */
     function renew(uint256 tokenId, uint256 duration) external payable returns (uint256 expiry) {
         string memory name = registry.tokenIdToName(tokenId);
-        uint256 price = calculatePrice(name, duration);
+        uint256 price = calculateRenewalPrice(name, duration);
 
         _processPayment(price);
 
@@ -259,7 +273,47 @@ contract DotHypeController is Ownable, EIP712 {
 
         require(priceIndex > 0, InvalidCharacterCount(charCount));
 
-        uint256 annualPrice = annualPrices[priceIndex];
+        uint256 annualRegistrationPrice = annualPrices[priceIndex];
+        uint256 annualRenewalPrice = annualRenewalPrices[priceIndex];
+
+        require(annualRegistrationPrice > 0 && annualRenewalPrice > 0, PricingNotSet());
+
+        if (annualRegistrationPrice == type(uint256).max || annualRenewalPrice == type(uint256).max) {
+            return type(uint256).max;
+        }
+
+        // For durations up to MIN_REGISTRATION_LENGTH, use registration price
+        if (duration <= MIN_REGISTRATION_LENGTH) {
+            uint256 usdPrice = (annualRegistrationPrice * duration) / 365 days;
+            return priceOracle.usdToHype(usdPrice);
+        }
+
+        // For longer durations:
+        // 1. First MIN_REGISTRATION_LENGTH uses registration price
+        // 2. Remaining duration uses renewal price
+        uint256 registrationPeriodPrice = annualRegistrationPrice;
+        uint256 remainingDuration = duration - MIN_REGISTRATION_LENGTH;
+        uint256 renewalPeriodPrice = (annualRenewalPrice * remainingDuration) / 365 days;
+
+        uint256 usdPrice = registrationPeriodPrice + renewalPeriodPrice;
+        return priceOracle.usdToHype(usdPrice);
+    }
+
+    /**
+     * @dev Calculate price for domain renewal
+     * @param name Domain name
+     * @param duration Renewal duration in seconds
+     * @return price Final price in HYPE tokens
+     */
+    function calculateRenewalPrice(string memory name, uint256 duration) public view returns (uint256 price) {
+        bytes memory nameBytes = bytes(name);
+        uint256 charCount = nameBytes.length;
+
+        uint256 priceIndex = charCount < 5 ? charCount : 5;
+
+        require(priceIndex > 0, InvalidCharacterCount(charCount));
+
+        uint256 annualPrice = annualRenewalPrices[priceIndex];
 
         require(annualPrice > 0, PricingNotSet());
 
@@ -346,6 +400,19 @@ contract DotHypeController is Ownable, EIP712 {
     }
 
     /**
+     * @dev Set annual renewal price for a specific character count
+     * @param charCount Character count (1-5, with 5 representing 5+ characters)
+     * @param annualPrice Annual renewal price in USD (1e18 = $1)
+     */
+    function setAnnualRenewalPrice(uint256 charCount, uint256 annualPrice) external onlyOwner {
+        require(charCount >= 1 && charCount <= 5, InvalidCharacterCount(charCount));
+
+        annualRenewalPrices[charCount] = annualPrice;
+
+        emit AnnualRenewalPriceUpdated(charCount, annualPrice);
+    }
+
+    /**
      * @dev Set all annual prices at once
      * @param prices Array of 5 prices in USD (1e18 = $1)
      *               [1-char, 2-char, 3-char, 4-char, 5+ char]
@@ -354,6 +421,18 @@ contract DotHypeController is Ownable, EIP712 {
         for (uint256 i = 0; i < 5; i++) {
             annualPrices[i + 1] = prices[i];
             emit AnnualPriceUpdated(i + 1, prices[i]);
+        }
+    }
+
+    /**
+     * @dev Set all annual renewal prices at once
+     * @param prices Array of 5 prices in USD (1e18 = $1)
+     *               [1-char, 2-char, 3-char, 4-char, 5+ char]
+     */
+    function setAllAnnualRenewalPrices(uint256[5] calldata prices) external onlyOwner {
+        for (uint256 i = 0; i < 5; i++) {
+            annualRenewalPrices[i + 1] = prices[i];
+            emit AnnualRenewalPriceUpdated(i + 1, prices[i]);
         }
     }
 
@@ -418,6 +497,10 @@ contract DotHypeController is Ownable, EIP712 {
         payable
         returns (uint256 tokenId, uint256 expiry)
     {
+        if (duration < MIN_REGISTRATION_LENGTH) {
+            revert DurationTooShort(duration, MIN_REGISTRATION_LENGTH);
+        }
+
         if (merkleRoot == bytes32(0)) {
             revert MerkleRootNotSet();
         }

@@ -62,6 +62,18 @@ contract DotHypeMerkleMintTest is Test {
         vm.prank(owner);
         controller.setAllAnnualPrices(prices);
 
+        // Set annual renewal prices (lower than registration prices)
+        uint256[5] memory renewalPrices = [
+            type(uint256).max, // 1 character: extremely high price (effectively unavailable)
+            type(uint256).max, // 2 characters: extremely high price (effectively unavailable)
+            80 ether, // 3 characters: $80 per year (20% discount)
+            8 ether, // 4 characters: $8 per year (20% discount)
+            0.8 ether // 5+ characters: $0.8 per year (20% discount)
+        ];
+
+        vm.prank(owner);
+        controller.setAllAnnualRenewalPrices(renewalPrices);
+
         // Ensure payment recipient is set to owner
         vm.prank(owner);
         controller.setPaymentRecipient(owner);
