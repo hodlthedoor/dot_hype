@@ -287,8 +287,8 @@ contract DotHypeRegistryTest is Test {
         vm.prank(controller);
         uint256 newExpiry = registry.renew(tokenId, duration);
 
-        // Verify the renewal starts from current time, not from old expiry
-        assertEq(newExpiry, block.timestamp + duration);
+        // Verify the renewal extends from original expiry date, not from current time
+        assertEq(newExpiry, initialExpiry + duration);
         assertEq(registry.expiryOf(tokenId), newExpiry);
     }
 

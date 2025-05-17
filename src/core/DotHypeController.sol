@@ -154,6 +154,38 @@ contract DotHypeController is Ownable, EIP712 {
     }
 
     /**
+     * @dev Internal function to handle domain registration
+     * @param name Domain name to register
+     * @param owner Address that will own the domain
+     * @param duration Registration duration in seconds
+     * @return tokenId The token ID of the registered domain
+     * @return expiry The expiry timestamp of the registration
+     */
+    function _registerDomain(
+        string memory name,
+        address owner,
+        uint256 duration
+    ) internal returns (uint256 tokenId, uint256 expiry) {
+        if (duration < MIN_REGISTRATION_LENGTH) {
+            revert DurationTooShort(duration, MIN_REGISTRATION_LENGTH);
+        }
+
+        bytes32 nameHash = keccak256(bytes(name));
+        address reservedFor = reservedNames[nameHash];
+        if (reservedFor != address(0) && reservedFor != owner) {
+            revert NameIsReserved(nameHash, reservedFor);
+        }
+
+        uint256 price = calculatePrice(name, duration);
+
+        _processPayment(price);
+
+        (tokenId, expiry) = registry.register(name, owner, duration);
+
+        emit DomainRegistered(name, owner, duration, price);
+    }
+
+    /**
      * @dev Register a domain with EIP-712 signature-based authorization
      * @param name Domain name to register (without .hype)
      * @param owner Address that will own the domain
@@ -170,31 +202,12 @@ contract DotHypeController is Ownable, EIP712 {
         uint256 deadline,
         bytes calldata signature
     ) external payable returns (uint256 tokenId, uint256 expiry) {
-        if (duration < MIN_REGISTRATION_LENGTH) {
-            revert DurationTooShort(duration, MIN_REGISTRATION_LENGTH);
-        }
-
-        bytes32 nameHash = keccak256(bytes(name));
-        address reservedFor = reservedNames[nameHash];
-        if (reservedFor != address(0) && reservedFor != owner) {
-            revert NameIsReserved(nameHash, reservedFor);
-        }
-
         _verifySignature(name, owner, duration, maxPrice, deadline, signature);
 
         uint256 price = calculatePrice(name, duration);
-
-        if (price == type(uint256).max) {
-            revert CharacterLengthNotAvailable(bytes(name).length);
-        }
-
         require(price <= maxPrice, InsufficientPayment(price, maxPrice));
 
-        _processPayment(price);
-
-        (tokenId, expiry) = registry.register(name, owner, duration);
-
-        emit DomainRegistered(name, owner, duration, price);
+        return _registerDomain(name, owner, duration);
     }
 
     /**
@@ -207,10 +220,6 @@ contract DotHypeController is Ownable, EIP712 {
         payable
         returns (uint256 tokenId, uint256 expiry)
     {
-        if (duration < MIN_REGISTRATION_LENGTH) {
-            revert DurationTooShort(duration, MIN_REGISTRATION_LENGTH);
-        }
-
         bytes32 nameHash = keccak256(bytes(name));
         address reservedFor = reservedNames[nameHash];
 
@@ -221,16 +230,11 @@ contract DotHypeController is Ownable, EIP712 {
             revert NotAuthorized(msg.sender, nameHash);
         }
 
-        uint256 price = calculatePrice(name, duration);
-
-        _processPayment(price);
-
-        (tokenId, expiry) = registry.register(name, msg.sender, duration);
+        (tokenId, expiry) = _registerDomain(name, msg.sender, duration);
 
         reservedNames[nameHash] = address(0);
-
-        emit ReservedNameRegistered(name, msg.sender, duration);
         emit NameReservationRemoved(nameHash);
+        emit ReservedNameRegistered(name, msg.sender, duration);
     }
 
     /**
@@ -488,10 +492,6 @@ contract DotHypeController is Ownable, EIP712 {
         payable
         returns (uint256 tokenId, uint256 expiry)
     {
-        if (duration < MIN_REGISTRATION_LENGTH) {
-            revert DurationTooShort(duration, MIN_REGISTRATION_LENGTH);
-        }
-
         if (merkleRoot == bytes32(0)) {
             revert MerkleRootNotSet();
         }
@@ -505,26 +505,10 @@ contract DotHypeController is Ownable, EIP712 {
             revert InvalidMerkleProof();
         }
 
-        bytes32 nameHash = keccak256(bytes(name));
-        address reservedFor = reservedNames[nameHash];
-        if (reservedFor != address(0) && reservedFor != msg.sender) {
-            revert NameIsReserved(nameHash, reservedFor);
-        }
-
-        uint256 price = calculatePrice(name, duration);
-
-        if (price == type(uint256).max) {
-            revert CharacterLengthNotAvailable(bytes(name).length);
-        }
-
-        _processPayment(price);
-
-        (tokenId, expiry) = registry.register(name, msg.sender, duration);
+        (tokenId, expiry) = _registerDomain(name, msg.sender, duration);
 
         hasUsedMerkleProof[msg.sender] = true;
-
         emit MerkleProofRegistration(name, msg.sender, duration);
-        emit DomainRegistered(name, msg.sender, duration, price);
     }
 
     /**

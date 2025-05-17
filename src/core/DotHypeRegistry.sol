@@ -116,14 +116,15 @@ contract DotHypeRegistry is ERC721, Ownable, IDotHypeRegistry {
         // Get current expiry
         NameRecord storage record = _records[tokenId];
 
-        // Update expiry
-        uint256 newExpiry;
-        if (block.timestamp > record.expiry) {
-            newExpiry = block.timestamp + duration;
-        } else {
-            newExpiry = record.expiry + duration;
-        }
-
+        // Check that either domain is not expired
+        require(
+            block.timestamp < record.expiry + GRACE_PERIOD,
+            DomainExpired(tokenId, record.expiry)
+        );
+        
+        // Always extend from original expiry date
+        uint256 newExpiry = record.expiry + duration;
+        
         record.expiry = newExpiry;
         expiry = newExpiry;
 

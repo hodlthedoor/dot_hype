@@ -229,24 +229,20 @@ contract DotHypeDutchAuction is DotHypeController {
     }
 
     /**
-     * @dev Register a domain from a Dutch auction with signature-based authorization
-     * @param name Domain name to register (without .hype)
+     * @dev Internal function to handle Dutch auction domain registration
+     * @param name Domain name to register
      * @param owner Address that will own the domain
      * @param duration Registration duration in seconds
-     * @param maxPrice Maximum price willing to pay (to prevent front-running)
-     * @param deadline Timestamp after which signature expires
-     * @param signature EIP-712 signature authorizing the registration
+     * @param maxPrice Maximum price willing to pay
+     * @return tokenId The token ID of the registered domain
+     * @return expiry The expiry timestamp of the registration
      */
-    function registerDutchAuctionWithSignature(
-        string calldata name,
+    function _registerDutchAuctionDomain(
+        string memory name,
         address owner,
         uint256 duration,
-        uint256 maxPrice,
-        uint256 deadline,
-        bytes calldata signature
-    ) external payable returns (uint256 tokenId, uint256 expiry) {
-        _verifyDutchAuctionSignature(name, owner, duration, maxPrice, deadline, signature);
-
+        uint256 maxPrice
+    ) internal returns (uint256 tokenId, uint256 expiry) {
         (uint256 basePrice, uint256 auctionPrice, uint256 totalPrice) = calculateDutchAuctionPrice(name, duration);
 
         (bool isInAuction, uint256 batchId) = isDomainInAuction(name);
@@ -277,6 +273,27 @@ contract DotHypeDutchAuction is DotHypeController {
     }
 
     /**
+     * @dev Register a domain from a Dutch auction with signature-based authorization
+     * @param name Domain name to register (without .hype)
+     * @param owner Address that will own the domain
+     * @param duration Registration duration in seconds
+     * @param maxPrice Maximum price willing to pay (to prevent front-running)
+     * @param deadline Timestamp after which signature expires
+     * @param signature EIP-712 signature authorizing the registration
+     */
+    function registerDutchAuctionWithSignature(
+        string calldata name,
+        address owner,
+        uint256 duration,
+        uint256 maxPrice,
+        uint256 deadline,
+        bytes calldata signature
+    ) external payable returns (uint256 tokenId, uint256 expiry) {
+        _verifyDutchAuctionSignature(name, owner, duration, maxPrice, deadline, signature);
+        return _registerDutchAuctionDomain(name, owner, duration, maxPrice);
+    }
+
+    /**
      * @dev Direct purchase of a domain from a Dutch auction (without signature verification)
      * @param name Domain name to register (without .hype)
      * @param duration Registration duration in seconds
@@ -287,33 +304,7 @@ contract DotHypeDutchAuction is DotHypeController {
         payable
         returns (uint256 tokenId, uint256 expiry)
     {
-        (uint256 basePrice, uint256 auctionPrice, uint256 totalPrice) = calculateDutchAuctionPrice(name, duration);
-
-        (bool isInAuction, uint256 batchId) = isDomainInAuction(name);
-        if (!isInAuction) {
-            revert DomainNotInAuction();
-        }
-
-        bytes32 nameHash = keccak256(bytes(name));
-        address reservedFor = reservedNames[nameHash];
-        if (reservedFor != address(0) && reservedFor != msg.sender) {
-            revert NameIsReserved(nameHash, reservedFor);
-        }
-
-        if (totalPrice > maxPrice) {
-            revert InsufficientPayment(totalPrice, maxPrice);
-        }
-
-        _processPayment(totalPrice);
-
-        (tokenId, expiry) = registry.register(name, msg.sender, duration);
-
-        domainToBatchId[nameHash] = 0;
-
-        emit DutchAuctionPurchase(name, msg.sender, duration, basePrice, auctionPrice, totalPrice);
-        emit DomainRegistered(name, msg.sender, duration, totalPrice);
-
-        return (tokenId, expiry);
+        return _registerDutchAuctionDomain(name, msg.sender, duration, maxPrice);
     }
 
     /**

@@ -57,11 +57,11 @@ contract DotHypeDutchAuctionTest is Test {
 
         // Set annual prices for different character counts
         uint256[5] memory prices = [
-            type(uint256).max, // 1 character: extremely high price (effectively unavailable)
-            type(uint256).max, // 2 characters: extremely high price (effectively unavailable)
-            100 ether, // 3 characters: $100 per year
-            10 ether, // 4 characters: $10 per year
-            1 ether // 5+ characters: $1 per year
+            uint256(0), // 1 character: extremely high price (effectively unavailable)
+            uint256(0), // 2 characters: extremely high price (effectively unavailable)
+            uint256(100 ether), // 3 characters: $100 per year
+            uint256(10 ether), // 4 characters: $10 per year
+            uint256(1 ether) // 5+ characters: $1 per year
         ];
 
         vm.prank(owner);
@@ -69,11 +69,11 @@ contract DotHypeDutchAuctionTest is Test {
 
         // Set annual renewal prices (lower than registration prices)
         uint256[5] memory renewalPrices = [
-            type(uint256).max, // 1 character: extremely high price (effectively unavailable)
-            type(uint256).max, // 2 characters: extremely high price (effectively unavailable)
-            80 ether, // 3 characters: $80 per year (20% discount)
-            8 ether, // 4 characters: $8 per year (20% discount)
-            0.8 ether // 5+ characters: $0.8 per year (20% discount)
+            uint256(0), // 1 character: extremely high price (effectively unavailable)
+            uint256(0), // 2 characters: extremely high price (effectively unavailable)
+            uint256(80 ether), // 3 characters: $80 per year (20% discount)
+            uint256(8 ether), // 4 characters: $8 per year (20% discount)
+            uint256(0.8 ether) // 5+ characters: $0.8 per year (20% discount)
         ];
 
         vm.prank(owner);
