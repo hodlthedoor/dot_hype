@@ -10,18 +10,18 @@ import "../../src/interfaces/IPriceOracle.sol";
  */
 contract MockTestingHypeOracle is IPriceOracle {
     uint256 constant SCALE = 1e6; // 10^(8 − szDecimals) (szDecimals = 2)
-    
+
     // Default pair ID (usually HYPE = 107)
     uint32 private defaultPairId;
-    
+
     // Mapping to store mock prices for different pair IDs
     mapping(uint32 => uint64) private pairPrices;
-    
+
     constructor(uint32 _defaultPairId, uint64 _defaultPrice) {
         defaultPairId = _defaultPairId;
         pairPrices[_defaultPairId] = _defaultPrice;
     }
-    
+
     /**
      * @dev Set a new default pair ID
      * @param _newPairId New default pair ID to use
@@ -29,7 +29,7 @@ contract MockTestingHypeOracle is IPriceOracle {
     function setDefaultPairId(uint32 _newPairId) external {
         defaultPairId = _newPairId;
     }
-    
+
     /**
      * @dev Set a price for a specific pair ID
      * @param pairId Pair ID to set price for
@@ -38,7 +38,7 @@ contract MockTestingHypeOracle is IPriceOracle {
     function setPairPrice(uint32 pairId, uint64 price) external {
         pairPrices[pairId] = price;
     }
-    
+
     /**
      * @dev Set prices for multiple pair IDs in a single transaction
      * @param pairIds Array of pair IDs to set prices for
@@ -46,7 +46,7 @@ contract MockTestingHypeOracle is IPriceOracle {
      */
     function setBulkPairPrices(uint32[] calldata pairIds, uint64[] calldata prices) external {
         require(pairIds.length == prices.length, "Array lengths must match");
-        
+
         for (uint256 i = 0; i < pairIds.length; i++) {
             pairPrices[pairIds[i]] = prices[i];
         }
@@ -90,4 +90,4 @@ contract MockTestingHypeOracle is IPriceOracle {
         require(price != 0, "Price not set for this pair ID");
         return price;
     }
-} 
+}

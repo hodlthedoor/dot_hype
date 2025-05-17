@@ -51,11 +51,11 @@ contract DotHypeControllerTest is Test {
 
         // Set annual prices for different character counts
         uint256[5] memory prices = [
-            type(uint256).max, // 1 character: extremely high price (effectively unavailable)
-            type(uint256).max, // 2 characters: extremely high price (effectively unavailable)
-            100 ether, // 3 characters: $100 per year
-            10 ether, // 4 characters: $10 per year
-            1 ether // 5+ characters: $1 per year
+            uint256(0), // 1 character: unavailable
+            uint256(0), // 2 characters: unavailable
+            uint256(100 ether), // 3 characters: $100 per year
+            uint256(10 ether), // 4 characters: $10 per year
+            uint256(1 ether) // 5+ characters: $1 per year
         ];
 
         vm.prank(owner);
@@ -63,11 +63,11 @@ contract DotHypeControllerTest is Test {
 
         // Set annual renewal prices (lower than registration prices)
         uint256[5] memory renewalPrices = [
-            type(uint256).max, // 1 character: extremely high price (effectively unavailable)
-            type(uint256).max, // 2 characters: extremely high price (effectively unavailable)
-            80 ether, // 3 characters: $80 per year (20% discount)
-            8 ether, // 4 characters: $8 per year (20% discount)
-            0.8 ether // 5+ characters: $0.8 per year (20% discount)
+            uint256(0), // 1 character: unavailable
+            uint256(0), // 2 characters: unavailable
+            uint256(80 ether), // 3 characters: $80 per year (20% discount)
+            uint256(8 ether), // 4 characters: $8 per year (20% discount)
+            uint256(0.8 ether) // 5+ characters: $0.8 per year (20% discount)
         ];
 
         vm.prank(owner);
@@ -222,18 +222,14 @@ contract DotHypeControllerTest is Test {
         console.log("threeCharPrice", threeCharPrice);
         assertEq(threeCharPrice, convertUsdToHype(100 ether)); // $100 = 50 HYPE
 
-        // Test 1 and 2 character domains - we need to manually compute to avoid overflow
-        // We're not testing exact values, just verifying they're effectively unavailable
+        // Test 1 and 2 character domains - should revert with PricingNotSet
+        string memory oneChar = "a";
+        vm.expectRevert(DotHypeController.PricingNotSet.selector);
+        controller.calculatePrice(oneChar, 365 days);
 
-        // Verify 1-character domains have the max price configured
-        vm.prank(owner);
-        controller.setAnnualPrice(1, type(uint256).max);
-        assertTrue(controller.annualPrices(1) == type(uint256).max);
-
-        // Verify 2-character domains have the max price configured
-        vm.prank(owner);
-        controller.setAnnualPrice(2, type(uint256).max);
-        assertTrue(controller.annualPrices(2) == type(uint256).max);
+        string memory twoChar = "ab";
+        vm.expectRevert(DotHypeController.PricingNotSet.selector);
+        controller.calculatePrice(twoChar, 365 days);
     }
 
     // Test minimum registration length
@@ -275,9 +271,8 @@ contract DotHypeControllerTest is Test {
 
         vm.deal(registrant, maxPrice);
         vm.prank(registrant);
-        (uint256 tokenId, uint256 expiry) = controller.registerWithSignature{value: maxPrice}(
-            name, registrant, duration, maxPrice, deadline, signature
-        );
+        (uint256 tokenId, uint256 expiry) =
+            controller.registerWithSignature{value: maxPrice}(name, registrant, duration, maxPrice, deadline, signature);
 
         // Verify registration succeeded
         assertEq(registry.ownerOf(tokenId), registrant);
@@ -327,15 +322,10 @@ contract DotHypeControllerTest is Test {
             signature = abi.encodePacked(r, s, v);
         }
 
-        // Should revert with CharacterLengthNotAvailable for 1 character domains
+        // Should revert with PricingNotSet for 1 character domains
         vm.deal(registrant, maxPrice);
         vm.prank(registrant);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                DotHypeController.CharacterLengthNotAvailable.selector,
-                1 // 1 character
-            )
-        );
+        vm.expectRevert(DotHypeController.PricingNotSet.selector);
         controller.registerWithSignature{value: maxPrice}(oneChar, registrant, duration, maxPrice, deadline, signature);
 
         // Try to register 2-character domain
@@ -349,14 +339,9 @@ contract DotHypeControllerTest is Test {
             signature = abi.encodePacked(r, s, v);
         }
 
-        // Should revert with CharacterLengthNotAvailable for 2 character domains
+        // Should revert with PricingNotSet for 2 character domains
         vm.prank(registrant);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                DotHypeController.CharacterLengthNotAvailable.selector,
-                2 // 2 characters
-            )
-        );
+        vm.expectRevert(DotHypeController.PricingNotSet.selector);
         controller.registerWithSignature{value: maxPrice}(twoChar, registrant, duration, maxPrice, deadline, signature);
     }
 
@@ -583,20 +568,25 @@ contract DotHypeControllerTest is Test {
     function testSetAllPrices() public {
         // New prices in USD
         uint256[5] memory newPrices = [
-            type(uint256).max, // 1 char (still unavailable)
-            type(uint256).max, // 2 char (still unavailable)
-            50 ether, // 3 char ($50 = 25 HYPE)
-            5 ether, // 4 char ($5 = 2.5 HYPE)
-            0.5 ether // 5+ char ($0.5 = 0.25 HYPE)
+            uint256(0), // 1 char (unavailable)
+            uint256(0), // 2 char (unavailable)
+            uint256(50 ether), // 3 char ($50 = 25 HYPE)
+            uint256(5 ether), // 4 char ($5 = 2.5 HYPE)
+            uint256(0.5 ether) // 5+ char ($0.5 = 0.25 HYPE)
         ];
 
         vm.prank(owner);
         controller.setAllAnnualPrices(newPrices);
 
         // Verify new prices
+        // 1 and 2-character domains should be unavailable
+        string memory oneChar = "a";
+        vm.expectRevert(DotHypeController.PricingNotSet.selector);
+        controller.calculatePrice(oneChar, 365 days);
+
         string memory twoChar = "ab";
-        uint256 twoCharPrice = controller.calculatePrice(twoChar, 365 days);
-        assertEq(twoCharPrice, type(uint256).max);
+        vm.expectRevert(DotHypeController.PricingNotSet.selector);
+        controller.calculatePrice(twoChar, 365 days);
 
         string memory threeChar = "abc";
         uint256 threeCharPrice = controller.calculatePrice(threeChar, 365 days);
@@ -783,21 +773,25 @@ contract DotHypeControllerTest is Test {
     function testSetAllRenewalPrices() public {
         // New renewal prices in USD
         uint256[5] memory newPrices = [
-            type(uint256).max, // 1 char (still unavailable)
-            type(uint256).max, // 2 char (still unavailable)
-            40 ether, // 3 char ($40 = 20 HYPE)
-            4 ether, // 4 char ($4 = 2 HYPE)
-            0.4 ether // 5+ char ($0.4 = 0.2 HYPE)
+            uint256(0), // 1 char (unavailable)
+            uint256(0), // 2 char (unavailable)
+            uint256(40 ether), // 3 char ($40 = 20 HYPE)
+            uint256(4 ether), // 4 char ($4 = 2 HYPE)
+            uint256(0.4 ether) // 5+ char ($0.4 = 0.2 HYPE)
         ];
 
         vm.prank(owner);
         controller.setAllAnnualRenewalPrices(newPrices);
 
         // Verify new renewal prices
-        // 2-character domains should still be unavailable
+        // 1 and 2-character domains should be unavailable
+        string memory oneChar = "a";
+        vm.expectRevert(DotHypeController.PricingNotSet.selector);
+        controller.calculateRenewalPrice(oneChar, 365 days);
+
         string memory twoChar = "ab";
-        uint256 twoCharPrice = controller.calculateRenewalPrice(twoChar, 365 days);
-        assertEq(twoCharPrice, type(uint256).max);
+        vm.expectRevert(DotHypeController.PricingNotSet.selector);
+        controller.calculateRenewalPrice(twoChar, 365 days);
 
         string memory threeChar = "abc";
         uint256 threeCharPrice = controller.calculateRenewalPrice(threeChar, 365 days);
@@ -808,7 +802,10 @@ contract DotHypeControllerTest is Test {
         assertEq(longNamePrice, convertUsdToHype(0.4 ether)); // $0.4 = 0.2 HYPE
 
         // Verify registration prices are unchanged
-        assertEq(controller.calculatePrice(twoChar, 365 days), type(uint256).max);
+        vm.expectRevert(DotHypeController.PricingNotSet.selector);
+        controller.calculatePrice(oneChar, 365 days);
+        vm.expectRevert(DotHypeController.PricingNotSet.selector);
+        controller.calculatePrice(twoChar, 365 days);
         assertEq(controller.calculatePrice(threeChar, 365 days), convertUsdToHype(100 ether)); // $100 = 50 HYPE
         assertEq(controller.calculatePrice(longName, 365 days), convertUsdToHype(1 ether)); // $1 = 0.5 HYPE
     }
@@ -874,12 +871,12 @@ contract DotHypeControllerTest is Test {
     function testSplitPricingUnavailableDomains() public {
         // Test 1-character domain (unavailable)
         string memory oneChar = "a";
-        uint256 oneCharPrice = controller.calculatePrice(oneChar, 730 days);
-        assertEq(oneCharPrice, type(uint256).max);
+        vm.expectRevert(DotHypeController.PricingNotSet.selector);
+        controller.calculatePrice(oneChar, 730 days);
 
         // Test 2-character domain (unavailable)
         string memory twoChar = "ab";
-        uint256 twoCharPrice = controller.calculatePrice(twoChar, 730 days);
-        assertEq(twoCharPrice, type(uint256).max);
+        vm.expectRevert(DotHypeController.PricingNotSet.selector);
+        controller.calculatePrice(twoChar, 730 days);
     }
 }

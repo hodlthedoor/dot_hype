@@ -11,14 +11,14 @@ import "../../src/interfaces/IPriceOracle.sol";
 contract TestingHypeOracle is IPriceOracle {
     address constant PRECOMPILE = 0x0000000000000000000000000000000000000808; // Using 0x808 for spot prices
     uint256 constant SCALE = 1e6; // 10^(8 − szDecimals) (szDecimals = 2)
-    
+
     // Default pair ID (HYPE = 107)
     uint32 private defaultPairId;
-    
+
     constructor(uint32 _defaultPairId) {
         defaultPairId = _defaultPairId;
     }
-    
+
     /**
      * @dev Set a new default pair ID
      * @param _newPairId New default pair ID to use
@@ -71,4 +71,4 @@ contract TestingHypeOracle is IPriceOracle {
         // Use abi.decode to extract the uint64 value as done in hypercore-sim
         price = abi.decode(ret, (uint64));
     }
-} 
+}

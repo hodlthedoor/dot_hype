@@ -17,20 +17,20 @@ contract DotHypeOnchainMetadata is Ownable, IDotHypeMetadata {
 
     // SVG configuration variables
     string public backgroundColor = "#072723"; // Dark green background
-    string public textColor = "#FFFFFF";       // White text
-    string public accentColor = "#FF5F1F";     // Orange accent color
-    string public logoColor = "#97FCE4";       // Hyperliquid logo color
-    string public circleColor = "#0A352E";     // Subtle inner circle color
-    
+    string public textColor = "#FFFFFF"; // White text
+    string public accentColor = "#FF5F1F"; // Orange accent color
+    string public logoColor = "#97FCE4"; // Hyperliquid logo color
+    string public circleColor = "#0A352E"; // Subtle inner circle color
+
     // Font size and style configuration
     uint256 public mainFontSize = 40;
     uint256 public secondaryFontSize = 16;
     string public fontFamily = "'Helvetica Neue', Arial, sans-serif";
-    
+
     // Design settings
     uint256 public logoSize = 80;
     uint256 public circleRadius = 170;
-    
+
     // Registry reference
     IDotHypeRegistry public registry;
 
@@ -52,17 +52,16 @@ contract DotHypeOnchainMetadata is Ownable, IDotHypeMetadata {
     function tokenURI(uint256 tokenId, string calldata name) external view override returns (string memory) {
         // Generate the SVG image
         string memory svgImage = generateSVG(name);
-        
+
         // Base64 encode the SVG
         string memory encodedSVG = Base64.encode(bytes(svgImage));
-        
-        
+
         uint256 expiry = registry.expiryOf(tokenId);
-        
+
         // Generate and encode the JSON metadata
         string memory json = generateJSON(name, encodedSVG, tokenId, expiry);
         string memory encodedJSON = Base64.encode(bytes(json));
-        
+
         // Return the data URI
         return string(abi.encodePacked("data:application/json;base64,", encodedJSON));
     }
@@ -85,49 +84,70 @@ contract DotHypeOnchainMetadata is Ownable, IDotHypeMetadata {
             abi.encodePacked(
                 '<svg xmlns="http://www.w3.org/2000/svg" width="500" height="500" viewBox="0 0 500 500">',
                 // Define filters
-                '<defs>',
+                "<defs>",
                 '<filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">',
                 '<feGaussianBlur in="SourceAlpha" stdDeviation="10"/>',
                 '<feOffset dx="0" dy="0" result="offsetblur"/>',
-                '<feComponentTransfer>',
+                "<feComponentTransfer>",
                 '<feFuncA type="linear" slope="0.3"/>',
-                '</feComponentTransfer>',
-                '<feMerge>',
-                '<feMergeNode/>',
+                "</feComponentTransfer>",
+                "<feMerge>",
+                "<feMergeNode/>",
                 '<feMergeNode in="SourceGraphic"/>',
-                '</feMerge>',
-                '</filter>',
-                '</defs>',
-                
+                "</feMerge>",
+                "</filter>",
+                "</defs>",
                 // Background
-                '<rect width="500" height="500" fill="', backgroundColor, '" />',
-                
+                '<rect width="500" height="500" fill="',
+                backgroundColor,
+                '" />',
                 // Inner circle with shadow
-                '<circle cx="250" cy="250" r="', circleRadius.toString(), '" fill="', circleColor, '" filter="url(#shadow)" />',
-                
+                '<circle cx="250" cy="250" r="',
+                circleRadius.toString(),
+                '" fill="',
+                circleColor,
+                '" filter="url(#shadow)" />',
                 // Accent circle
-                '<circle cx="250" cy="250" r="', circleRadius.toString(), '" fill="none" stroke="', accentColor, '" stroke-width="2" />',
-                
+                '<circle cx="250" cy="250" r="',
+                circleRadius.toString(),
+                '" fill="none" stroke="',
+                accentColor,
+                '" stroke-width="2" />',
                 // Hyperliquid logo - positioned in the upper part of the circle
                 '<g transform="translate(210, 130) scale(0.55)">',
-                '<path d="M144 71.6991C144 119.306 114.866 134.582 99.5156 120.98C86.8804 109.889 83.1211 86.4521 64.116 84.0456C39.9942 81.0113 37.9057 113.133 22.0334 113.133C3.5504 113.133 0 86.2428 0 72.4315C0 58.3063 3.96809 39.0542 19.736 39.0542C38.1146 39.0542 39.1588 66.5722 62.132 65.1073C85.0007 63.5379 85.4184 34.8689 100.247 22.6271C113.195 12.0593 144 23.4641 144 71.6991Z" fill="', logoColor, '"/>',
-                '</g>',
-                
+                '<path d="M144 71.6991C144 119.306 114.866 134.582 99.5156 120.98C86.8804 109.889 83.1211 86.4521 64.116 84.0456C39.9942 81.0113 37.9057 113.133 22.0334 113.133C3.5504 113.133 0 86.2428 0 72.4315C0 58.3063 3.96809 39.0542 19.736 39.0542C38.1146 39.0542 39.1588 66.5722 62.132 65.1073C85.0007 63.5379 85.4184 34.8689 100.247 22.6271C113.195 12.0593 144 23.4641 144 71.6991Z" fill="',
+                logoColor,
+                '"/>',
+                "</g>",
                 // Domain name - centered, with a clean font and good size
-                '<text x="250" y="280" font-family="', fontFamily, '" font-weight="bold" font-size="', fontSize.toString(), 'px" fill="', textColor, '" text-anchor="middle">',
+                '<text x="250" y="280" font-family="',
+                fontFamily,
+                '" font-weight="bold" font-size="',
+                fontSize.toString(),
+                'px" fill="',
+                textColor,
+                '" text-anchor="middle">',
                 name,
-                '</text>',
-                
+                "</text>",
                 // .hype - slightly smaller, still elegant
-                '<text x="250" y="320" font-family="', fontFamily, '" font-size="', secondaryFontSize.toString(), 'px" fill="', accentColor, '" text-anchor="middle">',
-                '.hype',
-                '</text>',
-                
+                '<text x="250" y="320" font-family="',
+                fontFamily,
+                '" font-size="',
+                secondaryFontSize.toString(),
+                'px" fill="',
+                accentColor,
+                '" text-anchor="middle">',
+                ".hype",
+                "</text>",
                 // Service name at bottom - small and subtle
-                '<text x="250" y="450" font-family="', fontFamily, '" font-size="12px" fill="', textColor, '" text-anchor="middle" opacity="0.6">',
-                'Hype Name Service',
-                '</text>',
-                '</svg>'
+                '<text x="250" y="450" font-family="',
+                fontFamily,
+                '" font-size="12px" fill="',
+                textColor,
+                '" text-anchor="middle" opacity="0.6">',
+                "Hype Name Service",
+                "</text>",
+                "</svg>"
             )
         );
     }
@@ -140,12 +160,11 @@ contract DotHypeOnchainMetadata is Ownable, IDotHypeMetadata {
      * @param expiry The expiry timestamp of the domain (0 if not set)
      * @return The JSON string
      */
-    function generateJSON(
-        string memory name,
-        string memory encodedSVG,
-        uint256 tokenId,
-        uint256 expiry
-    ) public pure returns (string memory) {
+    function generateJSON(string memory name, string memory encodedSVG, uint256 tokenId, uint256 expiry)
+        public
+        pure
+        returns (string memory)
+    {
         return string(
             abi.encodePacked(
                 '{"name":"',
@@ -161,14 +180,14 @@ contract DotHypeOnchainMetadata is Ownable, IDotHypeMetadata {
                 '"},',
                 '{"trait_type":"Length","value":',
                 uint256(bytes(name).length).toString(),
-                '},',
+                "},",
                 '{"trait_type":"Token ID","value":"',
                 tokenId.toString(),
                 '"},',
                 '{"trait_type":"Expiry","value":"',
                 Strings.toString(expiry),
                 '"}',
-                ']}'
+                "]}"
             )
         );
     }
@@ -196,7 +215,7 @@ contract DotHypeOnchainMetadata is Ownable, IDotHypeMetadata {
     function setAccentColor(string calldata _accentColor) external onlyOwner {
         accentColor = _accentColor;
     }
-    
+
     /**
      * @dev Updates the logo color
      * @param _logoColor New logo color in hex
@@ -204,7 +223,7 @@ contract DotHypeOnchainMetadata is Ownable, IDotHypeMetadata {
     function setLogoColor(string calldata _logoColor) external onlyOwner {
         logoColor = _logoColor;
     }
-    
+
     /**
      * @dev Updates the circle color
      * @param _circleColor New circle color in hex
@@ -230,7 +249,7 @@ contract DotHypeOnchainMetadata is Ownable, IDotHypeMetadata {
     function setFontFamily(string calldata _fontFamily) external onlyOwner {
         fontFamily = _fontFamily;
     }
-    
+
     /**
      * @dev Updates the design settings
      * @param _logoSize New logo size
@@ -240,4 +259,4 @@ contract DotHypeOnchainMetadata is Ownable, IDotHypeMetadata {
         logoSize = _logoSize;
         circleRadius = _circleRadius;
     }
-} 
+}

@@ -86,7 +86,7 @@ contract DotHypeDutchAuctionTest is Test {
         // Create a proper Merkle root for testing
         // We're just going to create a simple Merkle tree with one leaf (user address)
         bytes32 leaf = keccak256(abi.encodePacked(user));
-        
+
         // Set the Merkle root to be the leaf itself since we're only using one address
         vm.prank(owner);
         dutchAuction.setMerkleRoot(leaf);
@@ -115,7 +115,9 @@ contract DotHypeDutchAuctionTest is Test {
         uint256 nonce
     ) public view returns (bytes32) {
         bytes32 structHash = keccak256(
-            abi.encode(DUTCH_AUCTION_REGISTRATION_TYPEHASH, keccak256(bytes(name)), owner_, duration, maxPrice, deadline, nonce)
+            abi.encode(
+                DUTCH_AUCTION_REGISTRATION_TYPEHASH, keccak256(bytes(name)), owner_, duration, maxPrice, deadline, nonce
+            )
         );
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", computeDomainSeparator(), structHash));
 
@@ -125,13 +127,7 @@ contract DotHypeDutchAuctionTest is Test {
     // Helper function to create a Dutch auction batch
     function createAuctionBatch(string[] memory domains, uint256 startTime) internal returns (uint256) {
         vm.prank(owner);
-        return dutchAuction.createDutchAuctionBatch(
-            domains,
-            START_PRICE,
-            END_PRICE,
-            AUCTION_DURATION,
-            startTime
-        );
+        return dutchAuction.createDutchAuctionBatch(domains, START_PRICE, END_PRICE, AUCTION_DURATION, startTime);
     }
 
     // Test 1: Create a Dutch auction batch
@@ -141,12 +137,12 @@ contract DotHypeDutchAuctionTest is Test {
         domains[1] = "domain2";
 
         uint256 batchId = createAuctionBatch(domains, block.timestamp);
-        
+
         assertEq(batchId, 1);
-        
+
         (bool isInAuction1, uint256 batchId1) = dutchAuction.isDomainInAuction("domain1");
         (bool isInAuction2, uint256 batchId2) = dutchAuction.isDomainInAuction("domain2");
-        
+
         assertTrue(isInAuction1);
         assertTrue(isInAuction2);
         assertEq(batchId1, 1);
@@ -160,13 +156,7 @@ contract DotHypeDutchAuctionTest is Test {
 
         vm.prank(notOwner);
         vm.expectRevert(); // Should revert with Ownable: caller is not the owner
-        dutchAuction.createDutchAuctionBatch(
-            domains,
-            START_PRICE,
-            END_PRICE,
-            AUCTION_DURATION,
-            block.timestamp
-        );
+        dutchAuction.createDutchAuctionBatch(domains, START_PRICE, END_PRICE, AUCTION_DURATION, block.timestamp);
     }
 
     // Test 3: Can't buy a domain before the auction starts
@@ -174,10 +164,10 @@ contract DotHypeDutchAuctionTest is Test {
         // Create an auction batch that starts in the future
         string[] memory domains = new string[](1);
         domains[0] = "future";
-        
+
         uint256 startTime = block.timestamp + 1 hours;
         createAuctionBatch(domains, startTime);
-        
+
         // Try to buy before auction starts
         vm.prank(user);
         vm.deal(user, 100 ether); // Plenty of funds
@@ -190,50 +180,52 @@ contract DotHypeDutchAuctionTest is Test {
         // Create an auction batch
         string[] memory domains = new string[](1);
         domains[0] = "auction";
-        
+
         createAuctionBatch(domains, block.timestamp); // Start now
-        
+
         // Record owner's initial balance
         uint256 initialOwnerBalance = owner.balance;
-        
+
         // Check price at the start of the auction (should be base price + max auction price)
-        (uint256 basePrice, uint256 auctionPrice, uint256 totalPrice) = dutchAuction.calculateDutchAuctionPrice("auction", 365 days);
-        
+        (uint256 basePrice, uint256 auctionPrice, uint256 totalPrice) =
+            dutchAuction.calculateDutchAuctionPrice("auction", 365 days);
+
         // Base price should be the regular price for a 7-character domain for 1 year
         assertEq(basePrice, convertUsdToHype(1 ether));
-        
+
         // Auction price should be the start price converted to HYPE
         assertEq(auctionPrice, convertUsdToHype(START_PRICE));
-        
+
         // Total price should be base price + auction price
         assertEq(totalPrice, basePrice + auctionPrice);
-        
+
         // Fast forward to halfway through the auction
         vm.warp(block.timestamp + AUCTION_DURATION / 2);
-        
+
         // Check price at the middle of the auction
-        (uint256 basePrice2, uint256 auctionPrice2, uint256 totalPrice2) = dutchAuction.calculateDutchAuctionPrice("auction", 365 days);
-        
+        (uint256 basePrice2, uint256 auctionPrice2, uint256 totalPrice2) =
+            dutchAuction.calculateDutchAuctionPrice("auction", 365 days);
+
         // Base price should remain the same
         assertEq(basePrice2, basePrice);
-        
+
         // Auction price should be approximately halfway between start and end price
         uint256 expectedMidPrice = convertUsdToHype((START_PRICE + END_PRICE) / 2);
         assertApproxEqRel(auctionPrice2, expectedMidPrice, 0.02e18); // Allow 2% tolerance due to rounding
-        
+
         // Buy the domain at this halfway point
         vm.prank(user);
         vm.deal(user, totalPrice2);
-        (uint256 tokenId, ) = dutchAuction.purchaseDutchAuction{value: totalPrice2}("auction", 365 days, totalPrice2);
-        
+        (uint256 tokenId,) = dutchAuction.purchaseDutchAuction{value: totalPrice2}("auction", 365 days, totalPrice2);
+
         // Verify domain was purchased
         assertEq(registry.ownerOf(tokenId), user);
-        
+
         // Verify owner received the payment
         assertEq(owner.balance - initialOwnerBalance, totalPrice2);
-        
+
         // Verify domain is no longer in auction
-        (bool isInAuction, ) = dutchAuction.isDomainInAuction("auction");
+        (bool isInAuction,) = dutchAuction.isDomainInAuction("auction");
         assertFalse(isInAuction);
     }
 
@@ -242,23 +234,24 @@ contract DotHypeDutchAuctionTest is Test {
         // Create an auction batch
         string[] memory domains = new string[](1);
         domains[0] = "endauction";
-        
+
         createAuctionBatch(domains, block.timestamp);
-        
+
         // Fast forward to after the auction ends
         vm.warp(block.timestamp + AUCTION_DURATION + 1);
-        
+
         // Check price after auction ends
-        (uint256 basePrice, uint256 auctionPrice, uint256 totalPrice) = dutchAuction.calculateDutchAuctionPrice("endauction", 365 days);
-        
+        (uint256 basePrice, uint256 auctionPrice, uint256 totalPrice) =
+            dutchAuction.calculateDutchAuctionPrice("endauction", 365 days);
+
         // Auction price should be the end price
         assertEq(auctionPrice, convertUsdToHype(END_PRICE));
-        
+
         // Buy the domain at end price
         vm.prank(user);
         vm.deal(user, totalPrice);
-        (uint256 tokenId, ) = dutchAuction.purchaseDutchAuction{value: totalPrice}("endauction", 365 days, totalPrice);
-        
+        (uint256 tokenId,) = dutchAuction.purchaseDutchAuction{value: totalPrice}("endauction", 365 days, totalPrice);
+
         // Verify domain was purchased
         assertEq(registry.ownerOf(tokenId), user);
     }
@@ -268,45 +261,43 @@ contract DotHypeDutchAuctionTest is Test {
         // Create an auction batch
         string[] memory domains = new string[](1);
         domains[0] = "signature";
-        
+
         createAuctionBatch(domains, block.timestamp);
-        
+
         // Prepare registration parameters
         string memory name = "signature";
         address registrant = user;
         uint256 duration = 365 days;
         uint256 deadline = block.timestamp + 1 hours;
         uint256 nonce = dutchAuction.getNextNonce(registrant);
-        
+
         // Calculate expected price
-        (, , uint256 expectedPrice) = dutchAuction.calculateDutchAuctionPrice(name, duration);
+        (,, uint256 expectedPrice) = dutchAuction.calculateDutchAuctionPrice(name, duration);
         uint256 maxPrice = expectedPrice + 1 ether; // Add some buffer
-        
+
         // Create EIP-712 digest and sign
-        bytes32 digest = getDutchAuctionRegistrationDigest(
-            name, registrant, duration, maxPrice, deadline, nonce
-        );
-        
+        bytes32 digest = getDutchAuctionRegistrationDigest(name, registrant, duration, maxPrice, deadline, nonce);
+
         bytes memory signature;
         {
             (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKey, digest);
             signature = abi.encodePacked(r, s, v);
         }
-        
+
         // Execute the registration
         vm.prank(user);
         vm.deal(user, expectedPrice);
         (uint256 tokenId, uint256 expiry) = dutchAuction.registerDutchAuctionWithSignature{value: expectedPrice}(
             name, registrant, duration, maxPrice, deadline, signature
         );
-        
+
         // Verify registration
         assertEq(registry.ownerOf(tokenId), registrant);
         assertEq(expiry, block.timestamp + duration);
-        
+
         // Verify domain is no longer in auction
-        (bool isInAuction, ) = dutchAuction.isDomainInAuction(name);
-       assertFalse(isInAuction); // Domain remains in auction when registering with merkle proof
+        (bool isInAuction,) = dutchAuction.isDomainInAuction(name);
+        assertFalse(isInAuction); // Domain remains in auction when registering with merkle proof
     }
 
     // Test 7: Try to bypass auction with regular merkle proof registration
@@ -314,34 +305,34 @@ contract DotHypeDutchAuctionTest is Test {
         // Create an auction batch
         string[] memory domains = new string[](1);
         domains[0] = "merkle";
-        
+
         createAuctionBatch(domains, block.timestamp);
-        
+
         // Create an empty merkle proof
         // Since our Merkle tree has only one leaf (the user's address),
         // the proof is an empty array
         bytes32[] memory proof = new bytes32[](0);
-        
+
         // Calculate the dutch auction price components
-        (uint256 basePrice, uint256 auctionPrice, uint256 totalPrice) = 
+        (uint256 basePrice, uint256 auctionPrice, uint256 totalPrice) =
             dutchAuction.calculateDutchAuctionPrice("merkle", 365 days);
-        
+
         assertTrue(auctionPrice > 0, "Auction price should be positive");
         assertTrue(totalPrice > basePrice, "Total price should be greater than base price");
-        
+
         // Now register with the full auction price
         vm.prank(user);
         vm.deal(user, totalPrice);
-        (uint256 tokenId, ) = dutchAuction.registerWithMerkleProof{value: totalPrice}("merkle", 365 days, proof);
-        
+        (uint256 tokenId,) = dutchAuction.registerWithMerkleProof{value: totalPrice}("merkle", 365 days, proof);
+
         // Verify domain was purchased
         assertEq(registry.ownerOf(tokenId), user);
-        
+
         // Verify the merkle proof mint was used
         assertTrue(dutchAuction.hasAddressUsedMerkleProof(user));
-        
+
         // Verify domain is no longer in auction
-        (bool isInAuction, ) = dutchAuction.isDomainInAuction("merkle");
+        (bool isInAuction,) = dutchAuction.isDomainInAuction("merkle");
         assertTrue(isInAuction); // Domain remains in auction when registering with merkle proof
     }
 
@@ -350,9 +341,9 @@ contract DotHypeDutchAuctionTest is Test {
         // Create an auction batch
         string[] memory domains = new string[](1);
         domains[0] = "status";
-        
+
         uint256 batchId = createAuctionBatch(domains, block.timestamp);
-        
+
         // Check status at the start
         (
             DotHypeDutchAuction.DutchAuctionConfig memory config,
@@ -362,7 +353,7 @@ contract DotHypeDutchAuctionTest is Test {
             bool hasStarted,
             bool isComplete
         ) = dutchAuction.getAuctionStatus(batchId);
-        
+
         assertEq(config.startPrice, START_PRICE);
         assertEq(config.endPrice, END_PRICE);
         assertEq(config.auctionDuration, AUCTION_DURATION);
@@ -373,49 +364,35 @@ contract DotHypeDutchAuctionTest is Test {
         assertTrue(isActive);
         assertTrue(hasStarted);
         assertFalse(isComplete);
-        
+
         // Fast forward to halfway
         vm.warp(block.timestamp + AUCTION_DURATION / 2);
-        
+
         // Check status in the middle
-        (
-            ,
-            uint256 midPrice,
-            uint256 midTimeRemaining,
-            ,
-            ,
-            bool midComplete
-        ) = dutchAuction.getAuctionStatus(batchId);
-        
+        (, uint256 midPrice, uint256 midTimeRemaining,,, bool midComplete) = dutchAuction.getAuctionStatus(batchId);
+
         // Price should be approximately halfway between start and end
         uint256 expectedMidPrice = (START_PRICE + END_PRICE) / 2;
         assertApproxEqRel(midPrice, expectedMidPrice, 0.02e18);
-        
+
         // Time remaining should be half the total duration
         assertEq(midTimeRemaining, AUCTION_DURATION / 2);
-        
+
         // Auction should not be complete yet
         assertFalse(midComplete);
-        
+
         // Fast forward to the end
         vm.warp(block.timestamp + AUCTION_DURATION);
-        
+
         // Check status at the end
-        (
-            ,
-            uint256 endPrice,
-            uint256 endTimeRemaining,
-            ,
-            ,
-            bool endComplete
-        ) = dutchAuction.getAuctionStatus(batchId);
-        
+        (, uint256 endPrice, uint256 endTimeRemaining,,, bool endComplete) = dutchAuction.getAuctionStatus(batchId);
+
         // Price should be at the end price
         assertEq(endPrice, END_PRICE);
-        
+
         // Time remaining should be 0
         assertEq(endTimeRemaining, 0);
-        
+
         // Auction should be complete
         assertTrue(endComplete);
     }
@@ -427,15 +404,15 @@ contract DotHypeDutchAuctionTest is Test {
         domains[0] = "one";
         domains[1] = "two";
         domains[2] = "three";
-        
+
         uint256 batchId = createAuctionBatch(domains, block.timestamp);
-        
+
         // Get the domains in the batch
         bytes32[] memory batchDomains = dutchAuction.getBatchDomains(batchId);
-        
+
         // Verify the count
         assertEq(batchDomains.length, 3);
-        
+
         // Verify the domains are in the batch
         assertEq(batchDomains[0], keccak256(bytes("one")));
         assertEq(batchDomains[1], keccak256(bytes("two")));

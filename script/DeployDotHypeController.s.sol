@@ -28,37 +28,33 @@ contract DeployDotHypeController is Script {
 
         // Deploy the DotHypeController
         console.log("Deploying DotHypeController...");
-        
+
         // Constructor parameters
         address signerAddress = deployer; // Using deployer as signer for simplicity
-        
-        DotHypeController controller = new DotHypeController(
-            registryAddress,
-            signerAddress,
-            priceOracleAddress,
-            deployer
-        );
-        
+
+        DotHypeController controller =
+            new DotHypeController(registryAddress, signerAddress, priceOracleAddress, deployer);
+
         address controllerAddress = address(controller);
         console.log("DotHypeController deployed at:", controllerAddress);
-        
+
         // Set up initial pricing
         console.log("Setting up initial pricing...");
         uint256[5] memory prices = [
             type(uint256).max, // 1 character: unavailable
             type(uint256).max, // 2 characters: unavailable
             100 ether, // 3 characters: $100 per year
-            10 ether,  // 4 characters: $10 per year
-            1 ether    // 5+ characters: $1 per year
+            10 ether, // 4 characters: $10 per year
+            1 ether // 5+ characters: $1 per year
         ];
-        
+
         controller.setAllAnnualPrices(prices);
         console.log("Initial pricing configured");
-        
+
         // Set payment recipient (same as owner for simplicity)
         controller.setPaymentRecipient(deployer);
         console.log("Payment recipient configured to:", deployer);
-        
+
         // Set the controller in the registry
         console.log("Setting controller in registry...");
         DotHypeRegistry registry = DotHypeRegistry(registryAddress);
@@ -68,7 +64,7 @@ contract DeployDotHypeController is Script {
             console.log("WARNING: Failed to set controller in registry.");
             console.log("You may need to set it manually if you're not the registry owner.");
         }
-        
+
         // End transaction
         vm.stopBroadcast();
 
@@ -77,9 +73,11 @@ contract DeployDotHypeController is Script {
         console.log("Controller:   ", controllerAddress);
         console.log("Price Oracle: ", priceOracleAddress);
         console.log("\nIf the controller wasn't set automatically, run this command:");
-        console.log("cast send --rpc-url $RPC_URL --private-key $PRIVATE_KEY", 
-                    registryAddress, 
-                    "setController(address)", 
-                    controllerAddress);
+        console.log(
+            "cast send --rpc-url $RPC_URL --private-key $PRIVATE_KEY",
+            registryAddress,
+            "setController(address)",
+            controllerAddress
+        );
     }
-} 
+}

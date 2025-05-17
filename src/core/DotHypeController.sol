@@ -7,7 +7,6 @@ import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "../interfaces/IDotHypeRegistry.sol";
 import "../interfaces/IPriceOracle.sol";
-import "forge-std/console.sol";
 
 /**
  * @title DotHypeController
@@ -278,10 +277,6 @@ contract DotHypeController is Ownable, EIP712 {
 
         require(annualRegistrationPrice > 0 && annualRenewalPrice > 0, PricingNotSet());
 
-        if (annualRegistrationPrice == type(uint256).max || annualRenewalPrice == type(uint256).max) {
-            return type(uint256).max;
-        }
-
         // For durations up to MIN_REGISTRATION_LENGTH, use registration price
         if (duration <= MIN_REGISTRATION_LENGTH) {
             uint256 usdPrice = (annualRegistrationPrice * duration) / 365 days;
@@ -316,10 +311,6 @@ contract DotHypeController is Ownable, EIP712 {
         uint256 annualPrice = annualRenewalPrices[priceIndex];
 
         require(annualPrice > 0, PricingNotSet());
-
-        if (annualPrice == type(uint256).max) {
-            return type(uint256).max;
-        }
 
         uint256 usdPrice = (annualPrice * duration) / 365 days;
 

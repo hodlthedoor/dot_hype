@@ -37,9 +37,13 @@ contract DotHypeDutchAuction is DotHypeController {
     uint256 public nextBatchId = 1;
     mapping(uint256 => bytes32[]) public batchDomains;
 
-    event DutchAuctionBatchCreated(uint256 indexed batchId, uint256 startPrice, uint256 endPrice, uint256 duration, uint256 startTime);
+    event DutchAuctionBatchCreated(
+        uint256 indexed batchId, uint256 startPrice, uint256 endPrice, uint256 duration, uint256 startTime
+    );
     event DomainAddedToAuctionBatch(uint256 indexed batchId, bytes32 indexed nameHash, string name);
-    event DutchAuctionPurchase(string name, address owner, uint256 duration, uint256 basePrice, uint256 auctionPrice, uint256 totalPrice);
+    event DutchAuctionPurchase(
+        string name, address owner, uint256 duration, uint256 basePrice, uint256 auctionPrice, uint256 totalPrice
+    );
 
     /**
      * @dev Constructor
@@ -48,12 +52,9 @@ contract DotHypeDutchAuction is DotHypeController {
      * @param _priceOracle Address of the price oracle for USD conversion
      * @param _owner Initial owner of the contract
      */
-    constructor(
-        address _registry,
-        address _signer,
-        address _priceOracle,
-        address _owner
-    ) DotHypeController(_registry, _signer, _priceOracle, _owner) {}
+    constructor(address _registry, address _signer, address _priceOracle, address _owner)
+        DotHypeController(_registry, _signer, _priceOracle, _owner)
+    {}
 
     /**
      * @dev Create a new Dutch auction batch
@@ -77,15 +78,15 @@ contract DotHypeDutchAuction is DotHypeController {
         if (auctionDuration == 0) {
             revert InvalidAuctionConfig();
         }
-        
+
         if (startTime == 0) {
             startTime = block.timestamp;
         } else if (startTime < block.timestamp) {
             revert InvalidAuctionConfig();
         }
-        
+
         batchId = nextBatchId++;
-        
+
         auctionBatches[batchId] = DutchAuctionConfig({
             startPrice: startPrice,
             endPrice: endPrice,
@@ -93,16 +94,16 @@ contract DotHypeDutchAuction is DotHypeController {
             startTime: startTime,
             isActive: true
         });
-        
+
         for (uint256 i = 0; i < domains.length; i++) {
             _addDomainToAuction(batchId, domains[i]);
         }
-        
+
         emit DutchAuctionBatchCreated(batchId, startPrice, endPrice, auctionDuration, startTime);
-        
+
         return batchId;
     }
-    
+
     /**
      * @dev Internal function to add a domain to an auction batch
      * @param batchId The ID of the auction batch
@@ -110,17 +111,17 @@ contract DotHypeDutchAuction is DotHypeController {
      */
     function _addDomainToAuction(uint256 batchId, string memory name) internal {
         bytes32 nameHash = keccak256(bytes(name));
-        
+
         if (domainToBatchId[nameHash] != 0) {
             revert DomainAlreadyInAuction();
         }
-        
+
         domainToBatchId[nameHash] = batchId;
         batchDomains[batchId].push(nameHash);
-        
+
         emit DomainAddedToAuctionBatch(batchId, nameHash, name);
     }
-    
+
     /**
      * @dev Calculate current Dutch auction price for a domain
      * @param name Domain name
@@ -129,29 +130,29 @@ contract DotHypeDutchAuction is DotHypeController {
      * @return auctionPrice The current auction price component
      * @return totalPrice The total price (base + auction)
      */
-    function calculateDutchAuctionPrice(string memory name, uint256 duration) 
-        public 
-        view 
-        returns (uint256 basePrice, uint256 auctionPrice, uint256 totalPrice) 
+    function calculateDutchAuctionPrice(string memory name, uint256 duration)
+        public
+        view
+        returns (uint256 basePrice, uint256 auctionPrice, uint256 totalPrice)
     {
         bytes32 nameHash = keccak256(bytes(name));
         uint256 batchId = domainToBatchId[nameHash];
-        
+
         basePrice = super.calculatePrice(name, duration);
-        
+
         if (batchId == 0 || !auctionBatches[batchId].isActive) {
             return (basePrice, 0, basePrice);
         }
-        
+
         DutchAuctionConfig memory config = auctionBatches[batchId];
-        
+
         if (block.timestamp < config.startTime) {
             uint256 maxAuctionUsdPrice = config.startPrice;
             auctionPrice = priceOracle.usdToHype(maxAuctionUsdPrice);
             totalPrice = basePrice + auctionPrice;
             return (basePrice, auctionPrice, totalPrice);
         }
-        
+
         uint256 auctionEndTime = config.startTime + config.auctionDuration;
         if (block.timestamp >= auctionEndTime) {
             uint256 minAuctionUsdPrice = config.endPrice;
@@ -159,17 +160,17 @@ contract DotHypeDutchAuction is DotHypeController {
             totalPrice = basePrice + auctionPrice;
             return (basePrice, auctionPrice, totalPrice);
         }
-        
+
         uint256 elapsed = block.timestamp - config.startTime;
         uint256 priceDrop = config.startPrice - config.endPrice;
         uint256 currentUsdPrice = config.startPrice - (priceDrop * elapsed / config.auctionDuration);
-        
+
         auctionPrice = priceOracle.usdToHype(currentUsdPrice);
         totalPrice = basePrice + auctionPrice;
-        
+
         return (basePrice, auctionPrice, totalPrice);
     }
-    
+
     /**
      * @dev Verify a signature for Dutch auction domain registration
      * @param name Domain name to register (without .hype)
@@ -195,7 +196,9 @@ contract DotHypeDutchAuction is DotHypeController {
         uint256 nonce = nonces[owner]++;
 
         bytes32 structHash = keccak256(
-            abi.encode(DUTCH_AUCTION_REGISTRATION_TYPEHASH, keccak256(bytes(name)), owner, duration, maxPrice, deadline, nonce)
+            abi.encode(
+                DUTCH_AUCTION_REGISTRATION_TYPEHASH, keccak256(bytes(name)), owner, duration, maxPrice, deadline, nonce
+            )
         );
         bytes32 hash = _hashTypedDataV4(structHash);
 
@@ -216,15 +219,15 @@ contract DotHypeDutchAuction is DotHypeController {
     function isDomainInAuction(string memory name) public view returns (bool isInAuction, uint256 batchId) {
         bytes32 nameHash = keccak256(bytes(name));
         batchId = domainToBatchId[nameHash];
-        
+
         if (batchId == 0) {
             return (false, 0);
         }
-        
+
         isInAuction = auctionBatches[batchId].isActive;
         return (isInAuction, batchId);
     }
-    
+
     /**
      * @dev Register a domain from a Dutch auction with signature-based authorization
      * @param name Domain name to register (without .hype)
@@ -279,11 +282,11 @@ contract DotHypeDutchAuction is DotHypeController {
      * @param duration Registration duration in seconds
      * @param maxPrice Maximum price willing to pay
      */
-    function purchaseDutchAuction(
-        string calldata name,
-        uint256 duration,
-        uint256 maxPrice
-    ) external payable returns (uint256 tokenId, uint256 expiry) {
+    function purchaseDutchAuction(string calldata name, uint256 duration, uint256 maxPrice)
+        external
+        payable
+        returns (uint256 tokenId, uint256 expiry)
+    {
         (uint256 basePrice, uint256 auctionPrice, uint256 totalPrice) = calculateDutchAuctionPrice(name, duration);
 
         (bool isInAuction, uint256 batchId) = isDomainInAuction(name);
@@ -312,7 +315,7 @@ contract DotHypeDutchAuction is DotHypeController {
 
         return (tokenId, expiry);
     }
-    
+
     /**
      * @dev Get current auction status and details
      * @param batchId The auction batch ID to check
@@ -323,9 +326,9 @@ contract DotHypeDutchAuction is DotHypeController {
      * @return hasStarted Whether the auction has started
      * @return isComplete Whether the auction is complete
      */
-    function getAuctionStatus(uint256 batchId) 
-        external 
-        view 
+    function getAuctionStatus(uint256 batchId)
+        external
+        view
         returns (
             DutchAuctionConfig memory config,
             uint256 currentPrice,
@@ -333,21 +336,21 @@ contract DotHypeDutchAuction is DotHypeController {
             bool isActive,
             bool hasStarted,
             bool isComplete
-        ) 
+        )
     {
         if (batchId == 0 || batchId >= nextBatchId) {
             revert InvalidBatchId();
         }
-        
+
         config = auctionBatches[batchId];
         isActive = config.isActive;
         hasStarted = block.timestamp >= config.startTime;
-        
+
         uint256 auctionEndTime = config.startTime + config.auctionDuration;
         isComplete = block.timestamp >= auctionEndTime;
-        
+
         timeRemaining = isComplete ? 0 : auctionEndTime - block.timestamp;
-        
+
         if (!hasStarted) {
             currentPrice = config.startPrice;
         } else if (isComplete) {
@@ -357,7 +360,7 @@ contract DotHypeDutchAuction is DotHypeController {
             uint256 priceDrop = config.startPrice - config.endPrice;
             currentPrice = config.startPrice - (priceDrop * elapsed / config.auctionDuration);
         }
-        
+
         return (config, currentPrice, timeRemaining, isActive, hasStarted, isComplete);
     }
 
@@ -370,7 +373,7 @@ contract DotHypeDutchAuction is DotHypeController {
         if (batchId == 0 || batchId >= nextBatchId) {
             revert InvalidBatchId();
         }
-        
+
         return batchDomains[batchId];
     }
 }
