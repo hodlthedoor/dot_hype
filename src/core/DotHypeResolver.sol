@@ -117,7 +117,18 @@ contract DotHypeResolver is
         if (!isActive(node)) {
             return payable(address(0));
         }
-        return payable(_addresses[node][_recordVersions[node]]);
+        
+        address storedAddress = _addresses[node][_recordVersions[node]];
+        if (storedAddress != address(0)) {
+            return payable(storedAddress);
+        }
+        
+        // If no address is set, return the token owner
+        try IERC721(address(registry)).ownerOf(uint256(node)) returns (address domainOwner) {
+            return payable(domainOwner);
+        } catch {
+            return payable(address(0));
+        }
     }
 
     /**
@@ -284,7 +295,7 @@ contract DotHypeResolver is
         }
 
         // Check that the address record matches the lookup address
-        address registeredAddress = _addresses[node][_recordVersions[node]];
+        address registeredAddress = addr(node);
         if (registeredAddress != address_) {
             return ""; // Address doesn't match the resolver record
         }
@@ -313,7 +324,7 @@ contract DotHypeResolver is
         }
 
         // Check that the address record matches the lookup address
-        address registeredAddress = _addresses[node][_recordVersions[node]];
+        address registeredAddress = addr(node);
         if (registeredAddress != address_) {
             return ""; // Address doesn't match the resolver record
         }
@@ -337,7 +348,7 @@ contract DotHypeResolver is
         }
 
         // Check that the address record matches the lookup address
-        address registeredAddress = _addresses[node][_recordVersions[node]];
+        address registeredAddress = addr(node);
         return registeredAddress == address_;
     }
 
@@ -368,7 +379,7 @@ contract DotHypeResolver is
         try IERC721(address(registry)).ownerOf(uint256(node)) returns (address domainOwner) {
             return msg.sender == domainOwner;
         } catch {
-            // If the token doesn't exist, no one is authorized
+            // If the token doesn't exist, no one is authorised
             return false;
         }
     }

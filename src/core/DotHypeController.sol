@@ -504,10 +504,10 @@ contract DotHypeController is Ownable, EIP712 {
         if (!MerkleProof.verify(merkleProof, merkleRoot, leaf)) {
             revert InvalidMerkleProof();
         }
-
+        hasUsedMerkleProof[msg.sender] = true;
         (tokenId, expiry) = _registerDomain(name, msg.sender, duration);
 
-        hasUsedMerkleProof[msg.sender] = true;
+
         emit MerkleProofRegistration(name, msg.sender, duration);
     }
 

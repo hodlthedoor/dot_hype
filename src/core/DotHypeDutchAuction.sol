@@ -203,9 +203,7 @@ contract DotHypeDutchAuction is DotHypeController {
         bytes32 hash = _hashTypedDataV4(structHash);
 
         address recoveredSigner = ECDSA.recover(hash, signature);
-        if (recoveredSigner != signer) {
-            revert InvalidSigner();
-        }
+        require (recoveredSigner == signer, InvalidSigner());
 
         return true;
     }
@@ -302,6 +300,7 @@ contract DotHypeDutchAuction is DotHypeController {
     function purchaseDutchAuction(string calldata name, uint256 duration, uint256 maxPrice)
         external
         payable
+        onlyOwner
         returns (uint256 tokenId, uint256 expiry)
     {
         return _registerDutchAuctionDomain(name, msg.sender, duration, maxPrice);

@@ -308,7 +308,7 @@ contract DotHypeRegistryTest is Test {
 
         // Try to transfer the expired domain
         vm.prank(user1);
-        vm.expectRevert(); // Any revert is fine, but ERC721 likely reverts with "ERC721: caller is not token owner or approved"
+        vm.expectRevert(abi.encodeWithSelector(DotHypeRegistry.DomainExpired.selector, tokenId, initialExpiry));
         registry.transferFrom(user1, user2, tokenId);
     }
 
@@ -330,7 +330,7 @@ contract DotHypeRegistryTest is Test {
 
         // Try to transfer the domain in grace period
         vm.prank(user1);
-        vm.expectRevert(); // Any revert is fine, but ERC721 likely reverts with "ERC721: caller is not token owner or approved"
+        vm.expectRevert(abi.encodeWithSelector(DotHypeRegistry.DomainExpired.selector, tokenId, initialExpiry));
         registry.transferFrom(user1, user2, tokenId);
     }
 

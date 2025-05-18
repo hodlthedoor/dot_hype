@@ -213,10 +213,29 @@ contract DotHypeDutchAuctionTest is Test {
         uint256 expectedMidPrice = convertUsdToHype((START_PRICE + END_PRICE) / 2);
         assertApproxEqRel(auctionPrice2, expectedMidPrice, 0.02e18); // Allow 2% tolerance due to rounding
 
-        // Buy the domain at this halfway point
+        // Buy the domain at this halfway point using signature
+        string memory name = "auction";
+        address registrant = user;
+        uint256 duration = 365 days;
+        uint256 deadline = block.timestamp + 1 hours;
+        uint256 nonce = dutchAuction.getNextNonce(registrant);
+        uint256 maxPrice = totalPrice2;
+
+        // Create EIP-712 digest and sign
+        bytes32 digest = getDutchAuctionRegistrationDigest(name, registrant, duration, maxPrice, deadline, nonce);
+
+        bytes memory signature;
+        {
+            (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKey, digest);
+            signature = abi.encodePacked(r, s, v);
+        }
+
+        // Execute the registration
         vm.prank(user);
         vm.deal(user, totalPrice2);
-        (uint256 tokenId,) = dutchAuction.purchaseDutchAuction{value: totalPrice2}("auction", 365 days, totalPrice2);
+        (uint256 tokenId,) = dutchAuction.registerDutchAuctionWithSignature{value: totalPrice2}(
+            name, registrant, duration, maxPrice, deadline, signature
+        );
 
         // Verify domain was purchased
         assertEq(registry.ownerOf(tokenId), user);
@@ -247,10 +266,29 @@ contract DotHypeDutchAuctionTest is Test {
         // Auction price should be the end price
         assertEq(auctionPrice, convertUsdToHype(END_PRICE));
 
-        // Buy the domain at end price
+        // Buy the domain at end price using signature
+        string memory name = "endauction";
+        address registrant = user;
+        uint256 duration = 365 days;
+        uint256 deadline = block.timestamp + 1 hours;
+        uint256 nonce = dutchAuction.getNextNonce(registrant);
+        uint256 maxPrice = totalPrice;
+
+        // Create EIP-712 digest and sign
+        bytes32 digest = getDutchAuctionRegistrationDigest(name, registrant, duration, maxPrice, deadline, nonce);
+
+        bytes memory signature;
+        {
+            (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKey, digest);
+            signature = abi.encodePacked(r, s, v);
+        }
+
+        // Execute the registration
         vm.prank(user);
         vm.deal(user, totalPrice);
-        (uint256 tokenId,) = dutchAuction.purchaseDutchAuction{value: totalPrice}("endauction", 365 days, totalPrice);
+        (uint256 tokenId,) = dutchAuction.registerDutchAuctionWithSignature{value: totalPrice}(
+            name, registrant, duration, maxPrice, deadline, signature
+        );
 
         // Verify domain was purchased
         assertEq(registry.ownerOf(tokenId), user);
