@@ -4,6 +4,7 @@ pragma solidity ^0.8.27;
 import "forge-std/Test.sol";
 import "../src/core/DotHypeRegistry.sol";
 import "../src/core/DotHypeDutchAuction.sol";
+import "../src/core/DotHypeController.sol";
 import "./mocks/MockPriceOracle.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
@@ -455,5 +456,52 @@ contract DotHypeDutchAuctionTest is Test {
         assertEq(batchDomains[0], keccak256(bytes("one")));
         assertEq(batchDomains[1], keccak256(bytes("two")));
         assertEq(batchDomains[2], keccak256(bytes("three")));
+    }
+
+    // Test 10: Verify minimum registration duration is enforced in Dutch auction
+    function testMinimumRegistrationLengthEnforced() public {
+        // Create an auction batch
+        string[] memory domains = new string[](1);
+        domains[0] = "minduration";
+
+        createAuctionBatch(domains, block.timestamp);
+
+        // Prepare registration parameters with duration less than 1 year
+        string memory name = "minduration";
+        address registrant = user;
+        uint256 duration = 364 days; // Less than MIN_REGISTRATION_LENGTH (365 days)
+        uint256 deadline = block.timestamp + 1 hours;
+        uint256 nonce = dutchAuction.getNextNonce(registrant);
+
+        // Calculate expected price
+        (,, uint256 expectedPrice) = dutchAuction.calculateDutchAuctionPrice(name, duration);
+        uint256 maxPrice = expectedPrice + 1 ether; // Add some buffer
+
+        // Create EIP-712 digest and sign
+        bytes32 digest = getDutchAuctionRegistrationDigest(name, registrant, duration, maxPrice, deadline, nonce);
+
+        bytes memory signature;
+        {
+            (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKey, digest);
+            signature = abi.encodePacked(r, s, v);
+        }
+
+        // Execute the registration but expect it to revert due to duration being too short
+        vm.prank(user);
+        vm.deal(user, expectedPrice);
+        vm.expectRevert(
+            abi.encodeWithSelector(DotHypeController.DurationTooShort.selector, duration, 365 days)
+        );
+        dutchAuction.registerDutchAuctionWithSignature{value: expectedPrice}(
+            name, registrant, duration, maxPrice, deadline, signature
+        );
+
+        // Also test the direct purchase method
+        vm.prank(owner);
+        vm.deal(owner, expectedPrice);
+        vm.expectRevert(
+            abi.encodeWithSelector(DotHypeController.DurationTooShort.selector, duration, 365 days)
+        );
+        dutchAuction.purchaseDutchAuction{value: expectedPrice}(name, duration, maxPrice);
     }
 }

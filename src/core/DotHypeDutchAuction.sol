@@ -241,6 +241,10 @@ contract DotHypeDutchAuction is DotHypeController {
         uint256 duration,
         uint256 maxPrice
     ) internal returns (uint256 tokenId, uint256 expiry) {
+        if (duration < MIN_REGISTRATION_LENGTH) {
+            revert DurationTooShort(duration, MIN_REGISTRATION_LENGTH);
+        }
+
         (uint256 basePrice, uint256 auctionPrice, uint256 totalPrice) = calculateDutchAuctionPrice(name, duration);
 
         (bool isInAuction, uint256 batchId) = isDomainInAuction(name);
