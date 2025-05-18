@@ -269,6 +269,12 @@ contract DotHypeController is Ownable, EIP712 {
      * @return price Final price in HYPE tokens
      */
     function calculatePrice(string memory name, uint256 duration) public view returns (uint256 price) {
+        
+        uint256 p = _calculateBasePrice(name, duration);
+        return priceOracle.usdToHype(p);
+    }
+
+    function _calculateBasePrice(string memory name, uint256 duration) internal view returns (uint256 price) {
         bytes memory nameBytes = bytes(name);
         uint256 charCount = nameBytes.length;
 
@@ -283,8 +289,8 @@ contract DotHypeController is Ownable, EIP712 {
 
         // For durations up to MIN_REGISTRATION_LENGTH, use registration price
         if (duration <= MIN_REGISTRATION_LENGTH) {
-            uint256 usdPrice = (annualRegistrationPrice * duration) / 365 days;
-            return priceOracle.usdToHype(usdPrice);
+            uint256 usdPrice1 = (annualRegistrationPrice * duration) / 365 days;
+            return usdPrice1;
         }
 
         // For longer durations:
@@ -295,7 +301,8 @@ contract DotHypeController is Ownable, EIP712 {
         uint256 renewalPeriodPrice = (annualRenewalPrice * remainingDuration) / 365 days;
 
         uint256 usdPrice = registrationPeriodPrice + renewalPeriodPrice;
-        return priceOracle.usdToHype(usdPrice);
+
+        return usdPrice;
     }
 
     /**

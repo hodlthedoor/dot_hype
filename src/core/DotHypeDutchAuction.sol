@@ -138,7 +138,8 @@ contract DotHypeDutchAuction is DotHypeController {
         bytes32 nameHash = keccak256(bytes(name));
         uint256 batchId = domainToBatchId[nameHash];
 
-        basePrice = super.calculatePrice(name, duration);
+        basePrice = super._calculateBasePrice(name, duration);
+        basePrice = priceOracle.usdToHype(basePrice);
 
         if (batchId == 0 || !auctionBatches[batchId].isActive) {
             return (basePrice, 0, basePrice);
