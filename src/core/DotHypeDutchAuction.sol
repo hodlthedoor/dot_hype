@@ -35,12 +35,12 @@ contract DotHypeDutchAuction is DotHypeController {
     mapping(uint256 => DutchAuctionConfig) public auctionBatches;
     mapping(bytes32 => uint256) public domainToBatchId;
     uint256 public nextBatchId = 1;
-    mapping(uint256 => bytes32[]) public batchDomains;
 
     event DutchAuctionBatchCreated(
         uint256 indexed batchId, uint256 startPrice, uint256 endPrice, uint256 duration, uint256 startTime
     );
     event DomainAddedToAuctionBatch(uint256 indexed batchId, bytes32 indexed nameHash, string name);
+    event DomainRemovedFromAuctionBatch(uint256 indexed batchId, bytes32 indexed nameHash, string name);
     event DutchAuctionPurchase(
         string name, address owner, uint256 duration, uint256 basePrice, uint256 auctionPrice, uint256 totalPrice
     );
@@ -117,8 +117,6 @@ contract DotHypeDutchAuction is DotHypeController {
         }
 
         domainToBatchId[nameHash] = batchId;
-        batchDomains[batchId].push(nameHash);
-
         emit DomainAddedToAuctionBatch(batchId, nameHash, name);
     }
 
@@ -138,36 +136,47 @@ contract DotHypeDutchAuction is DotHypeController {
         bytes32 nameHash = keccak256(bytes(name));
         uint256 batchId = domainToBatchId[nameHash];
 
-        basePrice = super._calculateBasePrice(name, duration);
-        basePrice = priceOracle.usdToHype(basePrice);
-
+        // Get base price in USD
+        uint256 basePriceUsd = super._calculateBasePrice(name, duration);
+        
+        // If not in auction, just convert and return base price
         if (batchId == 0 || !auctionBatches[batchId].isActive) {
+            basePrice = priceOracle.usdToHype(basePriceUsd);
             return (basePrice, 0, basePrice);
         }
 
         DutchAuctionConfig memory config = auctionBatches[batchId];
-
+        
+        // Calculate auction price in USD
+        uint256 auctionPriceUsd;
+        
         if (block.timestamp < config.startTime) {
-            uint256 maxAuctionUsdPrice = config.startPrice;
-            auctionPrice = priceOracle.usdToHype(maxAuctionUsdPrice);
-            totalPrice = basePrice + auctionPrice;
-            return (basePrice, auctionPrice, totalPrice);
+            // Before auction starts - use start price
+            auctionPriceUsd = config.startPrice;
+        } else if (block.timestamp >= config.startTime + config.auctionDuration) {
+            // After auction ends - use end price
+            auctionPriceUsd = config.endPrice;
+        } else {
+            // During auction - calculate current price based on time elapsed
+            uint256 elapsed = block.timestamp - config.startTime;
+            uint256 priceDrop = config.startPrice - config.endPrice;
+            auctionPriceUsd = config.startPrice - (priceDrop * elapsed / config.auctionDuration);
         }
-
-        uint256 auctionEndTime = config.startTime + config.auctionDuration;
-        if (block.timestamp >= auctionEndTime) {
-            uint256 minAuctionUsdPrice = config.endPrice;
-            auctionPrice = priceOracle.usdToHype(minAuctionUsdPrice);
-            totalPrice = basePrice + auctionPrice;
-            return (basePrice, auctionPrice, totalPrice);
+        
+        // Calculate total USD price
+        uint256 totalPriceUsd = basePriceUsd + auctionPriceUsd;
+        
+        // Convert prices from USD to HYPE with a single oracle call
+        totalPrice = priceOracle.usdToHype(totalPriceUsd);
+        
+        // Since we need to return the individual components too, we'll calculate them 
+        // based on the proportions of the USD prices
+        if (totalPriceUsd > 0) {
+            basePrice = (totalPrice * basePriceUsd) / totalPriceUsd;
+            auctionPrice = totalPrice - basePrice; // Avoid rounding errors by subtracting
+        } else {
+            revert InvalidAuctionConfig();
         }
-
-        uint256 elapsed = block.timestamp - config.startTime;
-        uint256 priceDrop = config.startPrice - config.endPrice;
-        uint256 currentUsdPrice = config.startPrice - (priceDrop * elapsed / config.auctionDuration);
-
-        auctionPrice = priceOracle.usdToHype(currentUsdPrice);
-        totalPrice = basePrice + auctionPrice;
 
         return (basePrice, auctionPrice, totalPrice);
     }
@@ -267,10 +276,10 @@ contract DotHypeDutchAuction is DotHypeController {
 
         (tokenId, expiry) = registry.register(name, owner, duration);
 
+        emit DomainRemovedFromAuctionBatch(batchId, nameHash, name);
         domainToBatchId[nameHash] = 0;
 
         emit DutchAuctionPurchase(name, owner, duration, basePrice, auctionPrice, totalPrice);
-        emit DomainRegistered(name, owner, duration, totalPrice);
 
         return (tokenId, expiry);
     }
@@ -357,18 +366,5 @@ contract DotHypeDutchAuction is DotHypeController {
         }
 
         return (config, currentPrice, timeRemaining, isActive, hasStarted, isComplete);
-    }
-
-    /**
-     * @dev Get the domains in a specific auction batch
-     * @param batchId The ID of the auction batch
-     * @return domains Array of name hashes in this batch
-     */
-    function getBatchDomains(uint256 batchId) external view returns (bytes32[] memory) {
-        if (batchId == 0 || batchId >= nextBatchId) {
-            revert InvalidBatchId();
-        }
-
-        return batchDomains[batchId];
     }
 }

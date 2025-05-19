@@ -89,8 +89,6 @@ contract DotHypeRegistry is ERC721, Ownable, IDotHypeRegistry {
 
         // If the token exists but is expired beyond grace period, we need to burn it first
         if (_exists(tokenId) && block.timestamp > _records[tokenId].expiry + GRACE_PERIOD) {
-            // Since only the owner can burn, we need to do a forced burn
-            // Note: This uses internal ERC721 functions to handle it properly
             _burn(tokenId);
         }
 
@@ -196,8 +194,6 @@ contract DotHypeRegistry is ERC721, Ownable, IDotHypeRegistry {
         if (nameBytes.length < 1) {
             return false;
         }
-
-        // Basic validation - could be enhanced for character restrictions
         return true;
     }
 

@@ -446,16 +446,19 @@ contract DotHypeDutchAuctionTest is Test {
 
         uint256 batchId = createAuctionBatch(domains, block.timestamp);
 
-        // Get the domains in the batch
-        bytes32[] memory batchDomains = dutchAuction.getBatchDomains(batchId);
+        // Verify the domains are in the batch by checking domainToBatchId
+        assertEq(dutchAuction.domainToBatchId(keccak256(bytes("one"))), batchId);
+        assertEq(dutchAuction.domainToBatchId(keccak256(bytes("two"))), batchId);
+        assertEq(dutchAuction.domainToBatchId(keccak256(bytes("three"))), batchId);
 
-        // Verify the count
-        assertEq(batchDomains.length, 3);
+        // Verify the domains are in auction
+        (bool isInAuction1,) = dutchAuction.isDomainInAuction("one");
+        (bool isInAuction2,) = dutchAuction.isDomainInAuction("two");
+        (bool isInAuction3,) = dutchAuction.isDomainInAuction("three");
 
-        // Verify the domains are in the batch
-        assertEq(batchDomains[0], keccak256(bytes("one")));
-        assertEq(batchDomains[1], keccak256(bytes("two")));
-        assertEq(batchDomains[2], keccak256(bytes("three")));
+        assertTrue(isInAuction1);
+        assertTrue(isInAuction2);
+        assertTrue(isInAuction3);
     }
 
     // Test 10: Verify minimum registration duration is enforced in Dutch auction
