@@ -1,80 +1,81 @@
-# Deployment Scripts for DotHype
+# DotHype Deployment Script
 
-This directory contains deployment scripts for the DotHype naming service contracts.
+This directory contains deployment scripts for the DotHype domain system.
 
-## Deploy Onchain Metadata Contract
+## Available Scripts
 
-The `DeployOnchainMetadata.s.sol` script deploys the new onchain metadata contract and updates the registry to use it for all .hype domains.
+- `DeployDotHype.s.sol`: Main deployment script that deploys all core contracts with configured pricing.
+
+## Deployment Instructions
 
 ### Prerequisites
 
-1. Set up your environment variables in a `.env` file:
-
-   ```
-   PRIVATE_KEY=your_private_key_here
-   REGISTRY_ADDRESS=0x29ecB1E27a15037442cC97256f05F45f55EF10d0
-   ETHERSCAN_API_KEY=your_etherscan_api_key_here
-   ```
-
-2. Make sure you have Foundry installed and updated.
-
-### Deployment Steps
-
-1. Load your environment variables:
+1. Make sure you have Foundry installed:
 
    ```bash
-   source .env
+   curl -L https://foundry.paradigm.xyz | bash
+   foundryup
    ```
 
-2. Run the script on the target network (e.g., Hyperliquid testnet):
-
+2. Set up environment variables:
    ```bash
-   forge script script/DeployOnchainMetadata.s.sol \
-     --rpc-url https://rpc.hyperliquid-testnet.xyz/evm \
-     --chain-id 998 \
-     --broadcast \
-     --verify \
-     --verifier sourcify
+   export PRIVATE_KEY=your_private_key_here
+   export RPC_URL=your_rpc_url_here
    ```
 
-3. For mainnet deployment:
-   ```bash
-   forge script script/DeployOnchainMetadata.s.sol \
-     --rpc-url <MAINNET_RPC_URL> \
-     --chain-id <MAINNET_CHAIN_ID> \
-     --broadcast \
-     --verify \
-     --verifier sourcify
-   ```
+### Deploying to Hyperliquid Testnet
 
-### What the Script Does
+```bash
+forge script script/DeployDotHype.s.sol:DeployDotHype --rpc-url $RPC_URL --broadcast --verify
+```
 
-1. Deploys the `DotHypeOnchainMetadata` contract with dynamic SVG generation
-2. Updates the existing registry to use the new metadata provider
-3. Outputs verification instructions for the contract
+### Deploying to Hyperliquid Mainnet
 
-### After Deployment
+```bash
+forge script script/DeployDotHype.s.sol:DeployDotHype --rpc-url $RPC_URL --broadcast --verify
+```
 
-Once deployed, all .hype domains will automatically use the new onchain metadata, which includes:
+## Contract Configuration
 
-- Fully on-chain SVG images
-- Dynamic styling based on domain name length
-- The Hyperliquid logo integrated into the design
-- Custom colors and styling
+The deployment script sets up the following:
 
-This provides a permanent, immutable metadata solution for all .hype domains without relying on any external servers.
+1. **HypeOracle**: Used for USD to HYPE conversion
+2. **DotHypeRegistry**: Main registry for domain names
+3. **DotHypeResolver**: Resolver for domain name lookups
+4. **DotHypeOnlineMetadata**: Metadata provider for domains
+5. **DotHypeDutchAuction**: Controller with Dutch auction functionality
 
-## Customizing the Metadata
+### Pricing Configuration
 
-After deployment, the contract owner can customize various aspects of the metadata:
+Domain registration prices:
 
-1. Background color: `setBackgroundColor(string calldata _backgroundColor)`
-2. Text color: `setTextColor(string calldata _textColor)`
-3. Accent color: `setAccentColor(string calldata _accentColor)`
-4. Logo color: `setLogoColor(string calldata _logoColor)`
-5. Circle color: `setCircleColor(string calldata _circleColor)`
-6. Font sizes: `setFontSizes(uint256 _mainFontSize, uint256 _secondaryFontSize)`
-7. Font family: `setFontFamily(string calldata _fontFamily)`
-8. Design settings: `setDesignSettings(uint256 _logoSize, uint256 _circleRadius)`
+- 1 character: $0
+- 2 characters: $0
+- 3 characters: $10
+- 4 characters: $2
+- 5+ characters: $0.50
 
-These functions can be called through a contract management interface or directly using Etherscan.
+Domain renewal prices:
+
+- 1 character: $15
+- 2 characters: $10
+- 3 characters: $8
+- 4 characters: $1.60
+- 5+ characters: $0.40
+
+## Post-Deployment Tasks
+
+After deployment, you may want to:
+
+1. Transfer ownership of contracts to a multisig
+2. Configure additional reserved names
+3. Set up Dutch auctions for premium domains
+4. Verify contracts on explorers
+
+## Contract Verification
+
+Contracts can be verified on Hyperliquid explorers using:
+
+```bash
+forge verify-contract --chain hyperliquid-testnet <CONTRACT_ADDRESS> <CONTRACT_NAME>
+```

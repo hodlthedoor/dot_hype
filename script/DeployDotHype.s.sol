@@ -3,131 +3,102 @@ pragma solidity ^0.8.27;
 
 import "forge-std/Script.sol";
 import "../src/core/DotHypeRegistry.sol";
-import "../src/core/DotHypeController.sol";
 import "../src/core/DotHypeResolver.sol";
-import "../src/interfaces/IPriceOracle.sol";
+import "../src/core/DotHypeDutchAuction.sol";
+import "../src/core/DotHypeOnchainMetadata.sol";
 import "../src/core/HypeOracle.sol";
 
 /**
- * @title MockOracle
- * @dev Mock implementation of the HypeOracle with a fixed conversion rate
- * 1 HYPE = $5000 as requested
- */
-contract MockOracle is IPriceOracle {
-    // Fixed price: 1 HYPE = $5000
-    // In the precompile format (scaled by 1e6), this would be 5000 * 1e6 = 5,000,000,000
-    uint64 private constant MOCK_PRICE = 5_000_000_000;
-
-    /**
-     * @dev Converts a USD amount to HYPE tokens
-     * @param usdAmount 18-decimal USD amount (e.g. 1e18 = $1)
-     * @return hypeAmount 18-decimal HYPE amount
-     */
-    function usdToHype(uint256 usdAmount) external pure override returns (uint256 hypeAmount) {
-        // Convert using fixed rate: 1 HYPE = $5000
-        // Scaled by 1e6 as per the interface
-        hypeAmount = (usdAmount * 1e6) / MOCK_PRICE;
-    }
-
-    /**
-     * @dev Gets the raw price from the precompile
-     * @return price Raw price in the precompile format (scaled by 1e6)
-     */
-    function getRawPrice() public pure override returns (uint64 price) {
-        return MOCK_PRICE;
-    }
-}
-
-/**
  * @title DeployDotHype
- * @dev Script to deploy the complete DotHype infrastructure
+ * @dev Deployment script for DotHype contracts
  */
 contract DeployDotHype is Script {
+    // Price configuration (in USD with 18 decimals)
+    uint256 constant PRICE_1_CHAR = 0 ether;            // $0
+    uint256 constant PRICE_2_CHAR = 0 ether;            // $0
+    uint256 constant PRICE_3_CHAR = 10 ether;           // $10
+    uint256 constant PRICE_4_CHAR = 2 ether;            // $2
+    uint256 constant PRICE_5PLUS_CHAR = 0.5 ether;      // $0.5
+
+    // Renewal price configuration (in USD with 18 decimals)
+    uint256 constant RENEWAL_1_CHAR = 15 ether;         // $15
+    uint256 constant RENEWAL_2_CHAR = 10 ether;         // $10
+    uint256 constant RENEWAL_3_CHAR = 8 ether;          // $8
+    uint256 constant RENEWAL_4_CHAR = 1.6 ether;        // $1.6
+    uint256 constant RENEWAL_5PLUS_CHAR = 0.4 ether;    // $0.4
+
+    // Metadata base URI
+    string constant METADATA_BASE_URI = "https://metadata.dothype.xyz/";
+
     function run() public {
-        // Get the private key from the environment
+        // Fetch the deployer's private key
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-
-        // Start broadcasting transactions
-        vm.startBroadcast(deployerPrivateKey);
-
-        // Get the deployer address
         address deployer = vm.addr(deployerPrivateKey);
-        console.log("Deploying contracts with address:", deployer);
-
-        // 1. Deploy both Oracles
-        // A. Deploy the MockOracle first (will be used initially)
-        MockOracle mockOracle = new MockOracle();
-        console.log("MockOracle deployed at:", address(mockOracle));
-        console.log("Mock conversion rate: 1 HYPE = $5000");
-
-        // B. Deploy the real HypeOracle (for future use)
-        HypeOracle hypeOracle = new HypeOracle();
-        console.log("HypeOracle deployed at:", address(hypeOracle));
-
-        // Test mock oracle conversion rate
-        uint256 oneUsd = 1e18; // $1 with 18 decimals
-        uint256 oneUsdInHype = mockOracle.usdToHype(oneUsd);
-        console.log("$1 equals this many HYPE tokens (using MockOracle):", oneUsdInHype);
-
-        // 2. Deploy the Registry
-        // We need to pass controller address, but controller doesn't exist yet
-        // So we'll deploy with a dummy address and then update it
-        address temporaryController = deployer;
-        DotHypeRegistry registry = new DotHypeRegistry(deployer, temporaryController);
+        
+        // Log deployment info
+        console.log("Deploying DotHype contracts with address:", deployer);
+        
+        vm.startBroadcast(deployerPrivateKey);
+        
+        // 1. Deploy HypeOracle
+        HypeOracle oracle = new HypeOracle();
+        console.log("HypeOracle deployed at:", address(oracle));
+        
+        // 2. Deploy DotHypeRegistry
+        DotHypeRegistry registry = new DotHypeRegistry(deployer, deployer);
         console.log("DotHypeRegistry deployed at:", address(registry));
-
-        // 3. Deploy the Controller
-        // Create a signer address (you can replace this with any address)
-        address signer = deployer; // Using deployer as signer for simplicity
-        DotHypeController controller = new DotHypeController(
-            address(registry),
-            signer,
-            address(mockOracle), // Initially connect to MockOracle
-            deployer
-        );
-        console.log("DotHypeController deployed at:", address(controller));
-
-        // 4. Update Registry's controller to the real controller address
-        registry.setController(address(controller));
-        console.log("Registry controller set to:", address(controller));
-
-        // 5. Deploy the Resolver
+        
+        // 3. Deploy DotHypeResolver
         DotHypeResolver resolver = new DotHypeResolver(deployer, address(registry));
         console.log("DotHypeResolver deployed at:", address(resolver));
-
-        // 6. Set up pricing in the Controller
-        // These are example annual prices in USD (1e18 = $1)
-        // Index corresponds to character length: [not used, 1-char, 2-char, 3-char, 4-char, 5+ char]
-        uint256[6] memory annualPrices = [
-            0, // Not used
-            type(uint256).max, // 1-character domains - unavailable
-            type(uint256).max, // 2-character domains - unavailable
-            1000 * 1e18, // 3-character domains - $1000/year
-            100 * 1e18, // 4-character domains - $100/year
-            20 * 1e18 // 5+ character domains - $20/year
-        ];
-
-        // Set prices in the controller
-        for (uint256 i = 1; i < annualPrices.length; i++) {
-            controller.setAnnualPrice(i, annualPrices[i]);
-            console.log("Set price for", i, "character domains:", annualPrices[i]);
-        }
-
-        // Stop broadcasting transactions
+        
+        // 4. Deploy DotHypeMetadata (Online metadata provider)
+        DotHypeOnchainMetadata metadata = new DotHypeOnchainMetadata(deployer, address(registry));
+        console.log("DotHypeOnlineMetadata deployed at:", address(metadata));
+        
+        // 5. Set metadata provider in registry
+        registry.setMetadataProvider(address(metadata));
+        console.log("Set metadata provider in registry");
+        
+        // 6. Deploy DotHypeDutchAuction (which is a controller extension)
+        // Params: registry address, signer address, price oracle address, owner address
+        DotHypeDutchAuction dutchAuction = new DotHypeDutchAuction(
+            address(registry),
+            deployer,      // Signer - set to deployer initially
+            address(oracle),
+            deployer       // Owner
+        );
+        console.log("DotHypeDutchAuction deployed at:", address(dutchAuction));
+        
+        // 7. Set controller in registry
+        registry.setController(address(dutchAuction));
+        console.log("Set controller in registry to DutchAuction");
+        
+        // 8. Configure pricing in controller
+        // Set annual registration prices
+        dutchAuction.setAnnualPrice(1, PRICE_1_CHAR);  // 1 char
+        dutchAuction.setAnnualPrice(2, PRICE_2_CHAR);  // 2 char
+        dutchAuction.setAnnualPrice(3, PRICE_3_CHAR);  // 3 char
+        dutchAuction.setAnnualPrice(4, PRICE_4_CHAR);  // 4 char
+        dutchAuction.setAnnualPrice(5, PRICE_5PLUS_CHAR);  // 5+ char
+        console.log("Set annual registration prices");
+        
+        // Set annual renewal prices
+        dutchAuction.setAnnualRenewalPrice(1, RENEWAL_1_CHAR);  // 1 char
+        dutchAuction.setAnnualRenewalPrice(2, RENEWAL_2_CHAR);  // 2 char
+        dutchAuction.setAnnualRenewalPrice(3, RENEWAL_3_CHAR);  // 3 char
+        dutchAuction.setAnnualRenewalPrice(4, RENEWAL_4_CHAR);  // 4 char
+        dutchAuction.setAnnualRenewalPrice(5, RENEWAL_5PLUS_CHAR);  // 5+ char
+        console.log("Set annual renewal prices");
+        
         vm.stopBroadcast();
-
-        console.log("DotHype deployment complete!");
-        console.log("----------------------------------------------------------------");
-        console.log("Registry:   ", address(registry));
-        console.log("Controller: ", address(controller));
-        console.log("Resolver:   ", address(resolver));
-        console.log("MockOracle: ", address(mockOracle));
-        console.log("HypeOracle: ", address(hypeOracle));
-        console.log("----------------------------------------------------------------");
-        console.log("Currently using: MockOracle");
-        console.log("To switch to HypeOracle later, call controller.setPriceOracle(", address(hypeOracle), ")");
-        console.log("----------------------------------------------------------------");
-        console.log("MockOracle conversion rate: 1 HYPE = $5000");
-        console.log("$1 equals", oneUsdInHype, "HYPE tokens");
+        
+        // Log summary
+        console.log("--- Deployment Complete ---");
+        console.log("DotHypeRegistry:", address(registry));
+        console.log("DotHypeResolver:", address(resolver));
+        console.log("DotHypeOnlineMetadata:", address(metadata));
+        console.log("HypeOracle:", address(oracle));
+        console.log("DotHypeDutchAuction:", address(dutchAuction));
     }
-}
+} 

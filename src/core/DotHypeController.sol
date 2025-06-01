@@ -203,10 +203,6 @@ contract DotHypeController is Ownable, EIP712 {
         bytes calldata signature
     ) external payable returns (uint256 tokenId, uint256 expiry) {
         _verifySignature(name, owner, duration, maxPrice, deadline, signature);
-
-        uint256 price = calculatePrice(name, duration);
-        require(price <= maxPrice, InsufficientPayment(price, maxPrice));
-
         return _registerDomain(name, owner, duration);
     }
 
@@ -271,6 +267,7 @@ contract DotHypeController is Ownable, EIP712 {
     function calculatePrice(string memory name, uint256 duration) public view returns (uint256 price) {
         
         uint256 p = _calculateBasePrice(name, duration);
+        require(p > 0, PricingNotSet());
         return priceOracle.usdToHype(p);
     }
 
@@ -284,8 +281,6 @@ contract DotHypeController is Ownable, EIP712 {
 
         uint256 annualRegistrationPrice = annualPrices[priceIndex];
         uint256 annualRenewalPrice = annualRenewalPrices[priceIndex];
-
-        require(annualRegistrationPrice > 0 && annualRenewalPrice > 0, PricingNotSet());
 
         // For durations up to MIN_REGISTRATION_LENGTH, use registration price
         if (duration <= MIN_REGISTRATION_LENGTH) {
