@@ -339,7 +339,7 @@ contract DotHypeDutchAuctionTest is Test {
         assertFalse(isInAuction); // Domain remains in auction when registering with merkle proof
     }
 
-    // Test 7: Try to bypass auction with regular merkle proof registration
+    // Test 7: Verify that merkle proof registration fails for auction domains (security fix)
     function testMerkleProofRespectsDutchAuctionPrice() public {
         // Create an auction batch
         string[] memory domains = new string[](1);
@@ -359,20 +359,20 @@ contract DotHypeDutchAuctionTest is Test {
         assertTrue(auctionPrice > 0, "Auction price should be positive");
         assertTrue(totalPrice > basePrice, "Total price should be greater than base price");
 
-        // Now register with the full auction price
+        // Attempting to register with merkle proof should now fail (security fix)
         vm.prank(user);
         vm.deal(user, totalPrice);
-        (uint256 tokenId,) = dutchAuction.registerWithMerkleProof{value: totalPrice}("merkle", 365 days, proof);
+        
+        // EXPECTED: This should revert with DomainInAuction error
+        vm.expectRevert(abi.encodeWithSignature("DomainInAuction(string)", "merkle"));
+        dutchAuction.registerWithMerkleProof{value: totalPrice}("merkle", 365 days, proof);
 
-        // Verify domain was purchased
-        assertEq(registry.ownerOf(tokenId), user);
-
-        // Verify the merkle proof mint was used
-        assertTrue(dutchAuction.hasAddressUsedMerkleProof(user));
-
-        // Verify domain is no longer in auction
+        // Verify domain is still in auction and not registered
         (bool isInAuction,) = dutchAuction.isDomainInAuction("merkle");
-        assertTrue(isInAuction); // Domain remains in auction when registering with merkle proof
+        assertTrue(isInAuction, "Domain should still be in auction");
+
+        // Verify the merkle proof was not used
+        assertFalse(dutchAuction.hasAddressUsedMerkleProof(user), "Merkle proof should not be used");
     }
 
     // Test 8: Test batch auction status
@@ -492,9 +492,7 @@ contract DotHypeDutchAuctionTest is Test {
         // Execute the registration but expect it to revert due to duration being too short
         vm.prank(user);
         vm.deal(user, expectedPrice);
-        vm.expectRevert(
-            abi.encodeWithSelector(DotHypeController.DurationTooShort.selector, duration, 365 days)
-        );
+        vm.expectRevert(abi.encodeWithSelector(DotHypeController.DurationTooShort.selector, duration, 365 days));
         dutchAuction.registerDutchAuctionWithSignature{value: expectedPrice}(
             name, registrant, duration, maxPrice, deadline, signature
         );
@@ -502,9 +500,7 @@ contract DotHypeDutchAuctionTest is Test {
         // Also test the direct purchase method
         vm.prank(owner);
         vm.deal(owner, expectedPrice);
-        vm.expectRevert(
-            abi.encodeWithSelector(DotHypeController.DurationTooShort.selector, duration, 365 days)
-        );
+        vm.expectRevert(abi.encodeWithSelector(DotHypeController.DurationTooShort.selector, duration, 365 days));
         dutchAuction.purchaseDutchAuction{value: expectedPrice}(name, duration, maxPrice);
     }
 }

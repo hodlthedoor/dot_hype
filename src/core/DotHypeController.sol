@@ -35,6 +35,7 @@ contract DotHypeController is Ownable, EIP712 {
     error MerkleRootNotSet();
     error AlreadyMinted(address minter);
     error DurationTooShort(uint256 provided, uint256 minimum);
+    error DomainInAuction(string name);
 
     struct RegistrationParams {
         string name;
@@ -118,6 +119,7 @@ contract DotHypeController is Ownable, EIP712 {
         bytes calldata signature
     ) internal returns (bool) {
         require(block.timestamp <= deadline, SignatureExpired());
+        require(msg.value <= maxPrice, InsufficientPayment(maxPrice, msg.value));
 
         uint256 nonce = nonces[owner]++;
 
@@ -161,14 +163,16 @@ contract DotHypeController is Ownable, EIP712 {
      * @return tokenId The token ID of the registered domain
      * @return expiry The expiry timestamp of the registration
      */
-    function _registerDomain(
-        string memory name,
-        address owner,
-        uint256 duration
-    ) internal returns (uint256 tokenId, uint256 expiry) {
+    function _registerDomain(string memory name, address owner, uint256 duration)
+        internal
+        returns (uint256 tokenId, uint256 expiry)
+    {
         if (duration < MIN_REGISTRATION_LENGTH) {
             revert DurationTooShort(duration, MIN_REGISTRATION_LENGTH);
         }
+
+        // Check if domain is in an active auction
+        _checkDomainNotInAuction(name);
 
         bytes32 nameHash = keccak256(bytes(name));
         address reservedFor = reservedNames[nameHash];
@@ -183,6 +187,16 @@ contract DotHypeController is Ownable, EIP712 {
         (tokenId, expiry) = registry.register(name, owner, duration);
 
         emit DomainRegistered(name, owner, duration, price);
+    }
+
+    /**
+     * @dev Check if domain is in an active auction and revert if it is
+     * @param name Domain name to check
+     * @dev This function can be overridden by contracts that implement auction functionality
+     */
+    function _checkDomainNotInAuction(string memory name) internal view virtual {
+        // Base implementation does nothing - no auction functionality
+        // DotHypeDutchAuction will override this to add auction checks
     }
 
     /**
@@ -265,7 +279,6 @@ contract DotHypeController is Ownable, EIP712 {
      * @return price Final price in HYPE tokens
      */
     function calculatePrice(string memory name, uint256 duration) public view returns (uint256 price) {
-        
         uint256 p = _calculateBasePrice(name, duration);
         require(p > 0, PricingNotSet());
         return priceOracle.usdToHype(p);
@@ -508,7 +521,6 @@ contract DotHypeController is Ownable, EIP712 {
         }
         hasUsedMerkleProof[msg.sender] = true;
         (tokenId, expiry) = _registerDomain(name, msg.sender, duration);
-
 
         emit MerkleProofRegistration(name, msg.sender, duration);
     }

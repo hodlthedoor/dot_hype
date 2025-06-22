@@ -101,6 +101,31 @@ contract DotHypeRegistry is ERC721, Ownable, IDotHypeRegistry {
         emit NameRegistered(tokenId, owner, expiry);
     }
 
+    function registerSubname(string calldata sublabel, uint256 parentTokenId, address owner, uint256 duration)
+        external
+        onlyController
+        returns (uint256 tokenId, uint256 expiry)
+    {
+        require(_exists(parentTokenId), TokenNotRegistered(parentTokenId));
+        require(isActive(parentTokenId), DomainExpired(parentTokenId, _records[parentTokenId].expiry));
+        require(duration >= MIN_REGISTRATION_DURATION, DurationTooShort(duration, MIN_REGISTRATION_DURATION));
+
+        tokenId = subnameToTokenId(parentTokenId, sublabel);
+
+        // burn if the subname already exists (controller decided to overwrite)
+        if (_exists(tokenId)) {
+            _burn(tokenId);
+        }
+
+        expiry = block.timestamp + duration;
+        string memory fullName = string.concat(sublabel, ".", _records[parentTokenId].name);
+
+        _records[tokenId] = NameRecord({name: fullName, expiry: expiry});
+        _mint(owner, tokenId);
+
+        emit SubnameRegistered(tokenId, parentTokenId, owner, expiry);
+    }
+
     /**
      * @dev Renews an existing name registration
      * @param tokenId The token ID of the name to renew
@@ -115,18 +140,24 @@ contract DotHypeRegistry is ERC721, Ownable, IDotHypeRegistry {
         NameRecord storage record = _records[tokenId];
 
         // Check that either domain is not expired
-        require(
-            block.timestamp < record.expiry + GRACE_PERIOD,
-            DomainExpired(tokenId, record.expiry)
-        );
-        
+        require(block.timestamp < record.expiry + GRACE_PERIOD, DomainExpired(tokenId, record.expiry));
+
         // Always extend from original expiry date
         uint256 newExpiry = record.expiry + duration;
-        
+
         record.expiry = newExpiry;
         expiry = newExpiry;
 
         emit NameRenewed(tokenId, expiry);
+    }
+
+    event SubnameRegistered(uint256 indexed tokenId, uint256 indexed parentTokenId, address owner, uint256 expiry);
+
+    // ▸ ADD helper – pure, so free to call off‑chain too
+    function subnameToTokenId(uint256 parentTokenId, string calldata sublabel) public pure returns (uint256 tokenId) {
+        bytes32 labelHash = keccak256(abi.encodePacked(sublabel));
+        bytes32 nameHash = keccak256(abi.encodePacked(bytes32(parentTokenId), labelHash));
+        return uint256(nameHash);
     }
 
     /**

@@ -117,12 +117,12 @@ contract DotHypeResolver is
         if (!isActive(node)) {
             return payable(address(0));
         }
-        
+
         address storedAddress = _addresses[node][_recordVersions[node]];
         if (storedAddress != address(0)) {
             return payable(storedAddress);
         }
-        
+
         // If no address is set, return the token owner
         try IERC721(address(registry)).ownerOf(uint256(node)) returns (address domainOwner) {
             return payable(domainOwner);

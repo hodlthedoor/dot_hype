@@ -138,7 +138,7 @@ contract DotHypeDutchAuction is DotHypeController {
 
         // Get base price in USD
         uint256 basePriceUsd = super._calculateBasePrice(name, duration);
-        
+
         // If not in auction, just convert and return base price
         if (batchId == 0 || !auctionBatches[batchId].isActive) {
             basePrice = priceOracle.usdToHype(basePriceUsd);
@@ -146,10 +146,10 @@ contract DotHypeDutchAuction is DotHypeController {
         }
 
         DutchAuctionConfig memory config = auctionBatches[batchId];
-        
+
         // Calculate auction price in USD
         uint256 auctionPriceUsd;
-        
+
         if (block.timestamp < config.startTime) {
             // Before auction starts - use start price
             auctionPriceUsd = config.startPrice;
@@ -162,14 +162,14 @@ contract DotHypeDutchAuction is DotHypeController {
             uint256 priceDrop = config.startPrice - config.endPrice;
             auctionPriceUsd = config.startPrice - (priceDrop * elapsed / config.auctionDuration);
         }
-        
+
         // Calculate total USD price
         uint256 totalPriceUsd = basePriceUsd + auctionPriceUsd;
-        
+
         // Convert prices from USD to HYPE with a single oracle call
         totalPrice = priceOracle.usdToHype(totalPriceUsd);
-        
-        // Since we need to return the individual components too, we'll calculate them 
+
+        // Since we need to return the individual components too, we'll calculate them
         // based on the proportions of the USD prices
         if (totalPriceUsd > 0) {
             basePrice = (totalPrice * basePriceUsd) / totalPriceUsd;
@@ -213,7 +213,7 @@ contract DotHypeDutchAuction is DotHypeController {
         bytes32 hash = _hashTypedDataV4(structHash);
 
         address recoveredSigner = ECDSA.recover(hash, signature);
-        require (recoveredSigner == signer, InvalidSigner());
+        require(recoveredSigner == signer, InvalidSigner());
 
         return true;
     }
@@ -245,12 +245,10 @@ contract DotHypeDutchAuction is DotHypeController {
      * @return tokenId The token ID of the registered domain
      * @return expiry The expiry timestamp of the registration
      */
-    function _registerDutchAuctionDomain(
-        string memory name,
-        address owner,
-        uint256 duration,
-        uint256 maxPrice
-    ) internal returns (uint256 tokenId, uint256 expiry) {
+    function _registerDutchAuctionDomain(string memory name, address owner, uint256 duration, uint256 maxPrice)
+        internal
+        returns (uint256 tokenId, uint256 expiry)
+    {
         if (duration < MIN_REGISTRATION_LENGTH) {
             revert DurationTooShort(duration, MIN_REGISTRATION_LENGTH);
         }
@@ -366,5 +364,30 @@ contract DotHypeDutchAuction is DotHypeController {
         }
 
         return (config, currentPrice, timeRemaining, isActive, hasStarted, isComplete);
+    }
+
+    /**
+     * @dev Override to check if domain is in an active auction before allowing registration
+     * @param name Domain name to check
+     */
+    function _checkDomainNotInAuction(string memory name) internal view override {
+        bytes32 nameHash = keccak256(bytes(name));
+        uint256 batchId = domainToBatchId[nameHash];
+        
+        if (batchId == 0) {
+            return; // Domain not in any auction
+        }
+
+        DutchAuctionConfig memory config = auctionBatches[batchId];
+        
+        // Check if auction is active AND not expired
+        if (config.isActive) {
+            uint256 auctionEndTime = config.startTime + config.auctionDuration;
+            bool isExpired = block.timestamp >= auctionEndTime;
+            
+            if (!isExpired) {
+                revert DomainInAuction(name);
+            }
+        }
     }
 }

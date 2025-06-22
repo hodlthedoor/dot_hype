@@ -473,17 +473,17 @@ contract DotHypeResolverTest is Test {
         // So extended reverse resolution should now work with david's address
         assertTrue(resolver.hasRecord(david));
         assertEq(resolver.getName(david), "david.hype");
-        
+
         // But no text records are set yet
         assertEq(resolver.getValue(david, "email"), "");
         assertEq(resolver.getValue(david, "twitter"), "");
-        
+
         // Reset text records
         vm.startPrank(david);
         resolver.setText(davidNode, "email", "david@example.com");
         resolver.setText(davidNode, "twitter", "@david");
         vm.stopPrank();
-        
+
         // Extended reverse resolution should work with text records
         assertTrue(resolver.hasRecord(david));
         assertEq(resolver.getName(david), "david.hype");
@@ -555,49 +555,49 @@ contract DotHypeResolverTest is Test {
         // Test domain transfer scenario - Alice transfers domain to Charlie
         // The test setup doesn't fully simulate the real ownership change
         // Since we can't get the correct behavior, we'll skip testing the full transfer scenario
-        
+
         // Just verify the basic clearReverseRecord functionality
         vm.prank(alice);
         resolver.clearReverseRecord();
-        
+
         // Now Alice should have no record
         assertEq(resolver.getNode(alice), bytes32(0));
         assertFalse(resolver.hasRecord(alice));
         assertEq(resolver.getName(alice), "");
-        
+
         // Test other behaviors separately
-        
+
         // Create a new domain for charlie to ensure ownership is correct
         vm.startPrank(owner);
         (uint256 charlieTokenId2,) = registry.register("charlie2", charlie, REGISTRATION_DURATION);
         bytes32 charlieNode2 = bytes32(charlieTokenId2);
         vm.stopPrank();
-        
+
         // Charlie sets records on his own domain
         vm.startPrank(charlie);
         resolver.setText(charlieNode2, "email", "charlie@example.com");
         resolver.setText(charlieNode2, "twitter", "@charlie");
         resolver.setReverseRecord(charlieNode2);
         vm.stopPrank();
-        
+
         // Without setting an explicit address, Charlie's reverse record should work
         // because addr() returns the owner (charlie)
         assertTrue(resolver.hasRecord(charlie), "hasRecord(charlie) should be true with default address");
         assertEq(resolver.getName(charlie), "charlie2.hype");
         assertEq(resolver.getValue(charlie, "email"), "charlie@example.com");
-        
+
         // Setting a different address should break the reverse record
         vm.startPrank(charlie);
         resolver.setAddr(charlieNode2, alice);
         vm.stopPrank();
-        
+
         assertFalse(resolver.hasRecord(charlie), "hasRecord(charlie) should be false after setting addr to alice");
-        
+
         // Setting the address back to Charlie should restore the record
         vm.startPrank(charlie);
         resolver.setAddr(charlieNode2, charlie);
         vm.stopPrank();
-        
+
         assertTrue(resolver.hasRecord(charlie), "hasRecord(charlie) should be true after setting addr to charlie");
         assertEq(resolver.getName(charlie), "charlie2.hype");
     }
@@ -746,7 +746,7 @@ contract DotHypeResolverTest is Test {
         // Verify no changes were made
         // For bobNode, the addr function should now return bob (token owner) even without an explicit setting
         assertEq(resolver.addr(bobNode), bob);
-        // For aliceNode, the addr function should return alice (token owner) 
+        // For aliceNode, the addr function should return alice (token owner)
         assertEq(resolver.addr(aliceNode), alice);
 
         // Test that multicall fails if any operation would be invalid
@@ -817,45 +817,43 @@ contract DotHypeResolverTest is Test {
     function testDefaultAddressBehavior() public {
         // Initially no address is set, should return token owner (alice)
         assertEq(resolver.addr(aliceNode), alice);
-        
+
         // Setting an explicit address
         vm.startPrank(alice);
         address customAddress = address(0x123);
         resolver.setAddr(aliceNode, customAddress);
         vm.stopPrank();
-        
+
         // Should return the explicitly set address
         assertEq(resolver.addr(aliceNode), customAddress);
-        
+
         // Clearing records
         vm.startPrank(alice);
         resolver.clearRecords(aliceNode);
         vm.stopPrank();
-        
+
         // After clearing, should return token owner again
         assertEq(resolver.addr(aliceNode), alice);
-        
+
         // Test with expired domain
         // First, check that charlie's domain returns charlie when not expired
         assertEq(resolver.addr(charlieNode), charlie);
-        
+
         // Fast forward past expiry
         vm.warp(block.timestamp + SHORT_DURATION + 1);
-        
+
         // Expired domain should return address(0) regardless of ownership
         assertEq(resolver.addr(charlieNode), address(0));
-        
+
         // Testing ownership transfer
         // Mock a transfer of aliceNode from alice to bob
         vm.mockCall(
-            address(registry), 
-            abi.encodeWithSelector(IERC721.ownerOf.selector, uint256(aliceNode)), 
-            abi.encode(bob)
+            address(registry), abi.encodeWithSelector(IERC721.ownerOf.selector, uint256(aliceNode)), abi.encode(bob)
         );
-        
+
         // Should return the new owner (bob)
         assertEq(resolver.addr(aliceNode), bob);
-        
+
         // Clear mock
         vm.clearMockedCalls();
     }
@@ -873,45 +871,45 @@ contract DotHypeResolverTest is Test {
         vm.startPrank(alice);
         resolver.setText(aliceNode, "email", email);
         resolver.setText(aliceNode, "twitter", twitter);
-        
+
         // Alice sets her reverse record
         resolver.setReverseRecord(aliceNode);
         vm.stopPrank();
-        
+
         // Verify Alice's reverse record was set
         assertEq(resolver.getNode(alice), aliceNode);
-        
+
         // Even without an explicit address set, we should still get alice's domain name and records
         // because addr() now returns token owner by default
         assertTrue(resolver.hasRecord(alice));
         assertEq(resolver.getName(alice), string(abi.encodePacked(aliceName, ".hype")));
         assertEq(resolver.getValue(alice, "email"), email);
         assertEq(resolver.getValue(alice, "twitter"), twitter);
-        
+
         // Set explicit address to someone else
         vm.startPrank(alice);
         resolver.setAddr(aliceNode, bob);
         vm.stopPrank();
-        
+
         // Reverse resolution should now fail because address doesn't match
         assertFalse(resolver.hasRecord(alice));
         assertEq(resolver.getName(alice), "");
         assertEq(resolver.getValue(alice, "email"), "");
-        
+
         // Clear the address record
         vm.startPrank(alice);
         resolver.clearRecords(aliceNode);
-        
+
         // Reset text records
         resolver.setText(aliceNode, "email", email);
         resolver.setText(aliceNode, "twitter", twitter);
         vm.stopPrank();
-        
+
         // Reverse resolution should work again with the fallback behavior
         assertTrue(resolver.hasRecord(alice));
         assertEq(resolver.getName(alice), string(abi.encodePacked(aliceName, ".hype")));
         assertEq(resolver.getValue(alice, "email"), email);
-        
+
         // Test ownership transfer (using actual transfers instead of mocking)
         // First, perform the actual transfer from Alice to Bob
         vm.prank(alice);
@@ -920,12 +918,12 @@ contract DotHypeResolverTest is Test {
         // Alice's reverse record should now fail (since addr returns bob, not alice)
         assertFalse(resolver.hasRecord(alice));
         assertEq(resolver.getName(alice), "");
-        
+
         // Have Bob set up his own reverse record to this domain
         vm.startPrank(bob);
         resolver.setReverseRecord(aliceNode);
         vm.stopPrank();
-        
+
         // Bob's reverse record should work with the fallback owner address
         assertTrue(resolver.hasRecord(bob));
         assertEq(resolver.getName(bob), string(abi.encodePacked(aliceName, ".hype")));

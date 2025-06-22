@@ -527,4 +527,314 @@ contract DotHypeRegistryTest is Test {
         // Confirm the domain is still owned by user1
         assertEq(registry.ownerOf(tokenId), user1);
     }
+
+    // ========== SUBNAME REGISTRATION TESTS ==========
+
+    function testRegisterSubname() public {
+        string memory parentName = "parent";
+        string memory sublabel = "sub";
+        uint256 duration = 365 days;
+
+        // Register parent domain
+        vm.prank(controller);
+        (uint256 parentTokenId,) = registry.register(parentName, user1, duration);
+
+        // Register subname
+        vm.prank(controller);
+        (uint256 subnameTokenId, uint256 subnameExpiry) = registry.registerSubname(sublabel, parentTokenId, user2, duration);
+
+        // Verify subname registration
+        assertEq(registry.ownerOf(subnameTokenId), user2);
+        assertEq(registry.expiryOf(subnameTokenId), subnameExpiry);
+        assertEq(registry.tokenIdToName(subnameTokenId), "sub.parent");
+        assertTrue(registry.isActive(subnameTokenId));
+
+        // Verify expected expiry time
+        assertEq(subnameExpiry, block.timestamp + duration);
+    }
+
+    function testRegisterSubnameUnauthorized() public {
+        string memory parentName = "parent";
+        string memory sublabel = "sub";
+        uint256 duration = 365 days;
+
+        // Register parent domain
+        vm.prank(controller);
+        (uint256 parentTokenId,) = registry.register(parentName, user1, duration);
+
+        // Try to register subname from non-controller account
+        vm.prank(user1);
+        vm.expectRevert(abi.encodeWithSelector(DotHypeRegistry.NotAuthorized.selector, user1, 0));
+        registry.registerSubname(sublabel, parentTokenId, user2, duration);
+    }
+
+    function testRegisterSubnameWithNonExistentParent() public {
+        uint256 nonExistentParentTokenId = 999;
+        string memory sublabel = "sub";
+        uint256 duration = 365 days;
+
+        // Try to register subname with non-existent parent
+        vm.prank(controller);
+        vm.expectRevert(abi.encodeWithSelector(DotHypeRegistry.TokenNotRegistered.selector, nonExistentParentTokenId));
+        registry.registerSubname(sublabel, nonExistentParentTokenId, user2, duration);
+    }
+
+    function testRegisterSubnameWithExpiredParent() public {
+        string memory parentName = "parent";
+        string memory sublabel = "sub";
+        uint256 duration = 30 days;
+
+        // Register parent domain
+        vm.prank(controller);
+        (uint256 parentTokenId, uint256 parentExpiry) = registry.register(parentName, user1, duration);
+
+        // Move time forward to after parent expiry
+        vm.warp(parentExpiry + 1);
+
+        // Try to register subname with expired parent
+        vm.prank(controller);
+        vm.expectRevert(abi.encodeWithSelector(DotHypeRegistry.DomainExpired.selector, parentTokenId, parentExpiry));
+        registry.registerSubname(sublabel, parentTokenId, user2, duration);
+    }
+
+    function testRegisterSubnameTooShortDuration() public {
+        string memory parentName = "parent";
+        string memory sublabel = "sub";
+        uint256 duration = 1 days; // Too short
+
+        // Register parent domain
+        vm.prank(controller);
+        (uint256 parentTokenId,) = registry.register(parentName, user1, 365 days);
+
+        // Try to register subname with too short duration
+        vm.prank(controller);
+        vm.expectRevert(abi.encodeWithSelector(DotHypeRegistry.DurationTooShort.selector, duration, 28 days));
+        registry.registerSubname(sublabel, parentTokenId, user2, duration);
+    }
+
+    function testRegisterSubnameOverwritesExisting() public {
+        string memory parentName = "parent";
+        string memory sublabel = "sub";
+        uint256 duration = 365 days;
+
+        // Register parent domain
+        vm.prank(controller);
+        (uint256 parentTokenId,) = registry.register(parentName, user1, duration);
+
+        // Register subname first time
+        vm.prank(controller);
+        (uint256 subnameTokenId1, uint256 subnameExpiry1) = registry.registerSubname(sublabel, parentTokenId, user2, duration);
+
+        // Verify first registration
+        assertEq(registry.ownerOf(subnameTokenId1), user2);
+        assertEq(registry.expiryOf(subnameTokenId1), subnameExpiry1);
+
+        // Move time forward
+        vm.warp(block.timestamp + 100 days);
+
+        // Register same subname again (should overwrite)
+        vm.prank(controller);
+        (uint256 subnameTokenId2, uint256 subnameExpiry2) = registry.registerSubname(sublabel, parentTokenId, user1, duration);
+
+        // Verify overwrite worked
+        assertEq(subnameTokenId1, subnameTokenId2); // Same token ID
+        assertEq(registry.ownerOf(subnameTokenId2), user1); // New owner
+        assertEq(registry.expiryOf(subnameTokenId2), subnameExpiry2); // New expiry
+        assertEq(subnameExpiry2, block.timestamp + duration); // Correct new expiry time
+    }
+
+    function testSubnameToTokenIdCalculation() public {
+        string memory parentName = "parent";
+        string memory sublabel = "sub";
+
+        // Register parent domain
+        vm.prank(controller);
+        (uint256 parentTokenId,) = registry.register(parentName, user1, 365 days);
+
+        // Calculate expected subname token ID
+        uint256 expectedSubnameTokenId = registry.subnameToTokenId(parentTokenId, sublabel);
+
+        // Register subname
+        vm.prank(controller);
+        (uint256 actualSubnameTokenId,) = registry.registerSubname(sublabel, parentTokenId, user2, 365 days);
+
+        // Verify token ID calculation is correct
+        assertEq(actualSubnameTokenId, expectedSubnameTokenId);
+    }
+
+    function testSubnameToTokenIdPureFunction() public view {
+        uint256 parentTokenId = 12345;
+        string memory sublabel = "test";
+
+        // Calculate expected token ID manually
+        bytes32 labelHash = keccak256(abi.encodePacked(sublabel));
+        bytes32 nameHash = keccak256(abi.encodePacked(bytes32(parentTokenId), labelHash));
+        uint256 expectedTokenId = uint256(nameHash);
+
+        // Verify function returns expected result
+        assertEq(registry.subnameToTokenId(parentTokenId, sublabel), expectedTokenId);
+    }
+
+    function testRegisterMultipleSubnamesUnderSameParent() public {
+        string memory parentName = "parent";
+        uint256 duration = 365 days;
+
+        // Register parent domain
+        vm.prank(controller);
+        (uint256 parentTokenId,) = registry.register(parentName, user1, duration);
+
+        // Register multiple subnames
+        string memory sublabel1 = "sub1";
+        string memory sublabel2 = "sub2";
+        string memory sublabel3 = "sub3";
+
+        vm.prank(controller);
+        (uint256 subnameTokenId1,) = registry.registerSubname(sublabel1, parentTokenId, user1, duration);
+
+        vm.prank(controller);
+        (uint256 subnameTokenId2,) = registry.registerSubname(sublabel2, parentTokenId, user2, duration);
+
+        vm.prank(controller);
+        (uint256 subnameTokenId3,) = registry.registerSubname(sublabel3, parentTokenId, user1, duration);
+
+        // Verify all subnames are registered correctly
+        assertEq(registry.ownerOf(subnameTokenId1), user1);
+        assertEq(registry.ownerOf(subnameTokenId2), user2);
+        assertEq(registry.ownerOf(subnameTokenId3), user1);
+
+        assertEq(registry.tokenIdToName(subnameTokenId1), "sub1.parent");
+        assertEq(registry.tokenIdToName(subnameTokenId2), "sub2.parent");
+        assertEq(registry.tokenIdToName(subnameTokenId3), "sub3.parent");
+
+        // Verify all token IDs are different
+        assertTrue(subnameTokenId1 != subnameTokenId2);
+        assertTrue(subnameTokenId1 != subnameTokenId3);
+        assertTrue(subnameTokenId2 != subnameTokenId3);
+    }
+
+    function testSubnameTransfer() public {
+        string memory parentName = "parent";
+        string memory sublabel = "sub";
+        uint256 duration = 365 days;
+
+        // Register parent domain
+        vm.prank(controller);
+        (uint256 parentTokenId,) = registry.register(parentName, user1, duration);
+
+        // Register subname
+        vm.prank(controller);
+        (uint256 subnameTokenId,) = registry.registerSubname(sublabel, parentTokenId, user1, duration);
+
+        // Transfer subname
+        vm.prank(user1);
+        registry.transferFrom(user1, user2, subnameTokenId);
+
+        // Verify transfer
+        assertEq(registry.ownerOf(subnameTokenId), user2);
+    }
+
+    function testSubnameCannotBeTransferredWhenExpired() public {
+        string memory parentName = "parent";
+        string memory sublabel = "sub";
+        uint256 duration = 30 days;
+
+        // Register parent domain
+        vm.prank(controller);
+        (uint256 parentTokenId,) = registry.register(parentName, user1, 365 days);
+
+        // Register subname
+        vm.prank(controller);
+        (uint256 subnameTokenId, uint256 subnameExpiry) = registry.registerSubname(sublabel, parentTokenId, user1, duration);
+
+        // Move time forward to after subname expiry
+        vm.warp(subnameExpiry + 1);
+
+        // Try to transfer expired subname
+        vm.prank(user1);
+        vm.expectRevert(abi.encodeWithSelector(DotHypeRegistry.DomainExpired.selector, subnameTokenId, subnameExpiry));
+        registry.transferFrom(user1, user2, subnameTokenId);
+    }
+
+    function testSubnameRegistrationEvent() public {
+        string memory parentName = "parent";
+        string memory sublabel = "sub";
+        uint256 duration = 365 days;
+
+        // Register parent domain
+        vm.prank(controller);
+        (uint256 parentTokenId,) = registry.register(parentName, user1, duration);
+
+        // Expect SubnameRegistered event
+        vm.expectEmit(true, true, false, true);
+        uint256 expectedSubnameTokenId = registry.subnameToTokenId(parentTokenId, sublabel);
+        uint256 expectedExpiry = block.timestamp + duration;
+        emit DotHypeRegistry.SubnameRegistered(expectedSubnameTokenId, parentTokenId, user2, expectedExpiry);
+
+        // Register subname
+        vm.prank(controller);
+        registry.registerSubname(sublabel, parentTokenId, user2, duration);
+    }
+
+    function testSubnameWithComplexNames() public {
+        string memory parentName = "complex-parent_123";
+        string memory sublabel = "sub-label_456";
+        uint256 duration = 365 days;
+
+        // Register parent domain
+        vm.prank(controller);
+        (uint256 parentTokenId,) = registry.register(parentName, user1, duration);
+
+        // Register subname with complex names
+        vm.prank(controller);
+        (uint256 subnameTokenId,) = registry.registerSubname(sublabel, parentTokenId, user2, duration);
+
+        // Verify registration
+        assertEq(registry.ownerOf(subnameTokenId), user2);
+        assertEq(registry.tokenIdToName(subnameTokenId), "sub-label_456.complex-parent_123");
+    }
+
+    function testSubnameRenewal() public {
+        string memory parentName = "parent";
+        string memory sublabel = "sub";
+        uint256 duration = 365 days;
+
+        // Register parent domain
+        vm.prank(controller);
+        (uint256 parentTokenId,) = registry.register(parentName, user1, duration);
+
+        // Register subname
+        vm.prank(controller);
+        (uint256 subnameTokenId, uint256 initialExpiry) = registry.registerSubname(sublabel, parentTokenId, user2, duration);
+
+        // Renew subname
+        vm.prank(controller);
+        uint256 newExpiry = registry.renew(subnameTokenId, duration);
+
+        // Verify renewal
+        assertEq(newExpiry, initialExpiry + duration);
+        assertEq(registry.expiryOf(subnameTokenId), newExpiry);
+    }
+
+    function testSubnameIsActiveCheck() public {
+        string memory parentName = "parent";
+        string memory sublabel = "sub";
+        uint256 duration = 30 days;
+
+        // Register parent domain
+        vm.prank(controller);
+        (uint256 parentTokenId,) = registry.register(parentName, user1, 365 days);
+
+        // Register subname
+        vm.prank(controller);
+        (uint256 subnameTokenId, uint256 subnameExpiry) = registry.registerSubname(sublabel, parentTokenId, user2, duration);
+
+        // Verify subname is active
+        assertTrue(registry.isActive(subnameTokenId));
+
+        // Move time forward to after expiry
+        vm.warp(subnameExpiry + 1);
+
+        // Verify subname is no longer active
+        assertFalse(registry.isActive(subnameTokenId));
+    }
 }
