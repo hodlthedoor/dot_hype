@@ -44,8 +44,8 @@ contract DotHypeResolver is
     // Mapping from node to record version
     mapping(bytes32 => uint256) private _recordVersions;
 
-    // Storage for domain records with versioning
-    mapping(bytes32 => mapping(uint256 => address)) private _addresses;
+    // Storage for domain records with versioning and owner scoping
+    mapping(bytes32 => mapping(uint256 => mapping(address => address))) private _addresses; // node => version => owner => address
     mapping(bytes32 => mapping(uint256 => mapping(uint256 => bytes))) private _coinAddresses;
     mapping(bytes32 => mapping(uint256 => mapping(string => string))) private _textRecords;
     mapping(bytes32 => mapping(uint256 => bytes)) private _contentHashes;
@@ -118,17 +118,22 @@ contract DotHypeResolver is
             return payable(address(0));
         }
 
-        address storedAddress = _addresses[node][_recordVersions[node]];
+        // Get the current token owner
+        address currentOwner;
+        try IERC721(address(registry)).ownerOf(uint256(node)) returns (address domainOwner) {
+            currentOwner = domainOwner;
+        } catch {
+            return payable(address(0));
+        }
+
+        // Check if the current owner has set an address record
+        address storedAddress = _addresses[node][_recordVersions[node]][currentOwner];
         if (storedAddress != address(0)) {
             return payable(storedAddress);
         }
 
-        // If no address is set, return the token owner
-        try IERC721(address(registry)).ownerOf(uint256(node)) returns (address domainOwner) {
-            return payable(domainOwner);
-        } catch {
-            return payable(address(0));
-        }
+        // If no address is set by current owner, return the token owner
+        return payable(currentOwner);
     }
 
     /**
@@ -138,7 +143,16 @@ contract DotHypeResolver is
      */
     function setAddr(bytes32 node, address a) public virtual authorised(node) onlyActive(node) {
         uint256 version = _recordVersions[node];
-        _addresses[node][version] = a;
+        
+        // Get the current domain owner
+        address domainOwner;
+        try IERC721(address(registry)).ownerOf(uint256(node)) returns (address owner) {
+            domainOwner = owner;
+        } catch {
+            revert InvalidNode(node);
+        }
+        
+        _addresses[node][version][domainOwner] = a;
         emit AddrChanged(node, a);
     }
 

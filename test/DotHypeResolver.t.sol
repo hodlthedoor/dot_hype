@@ -929,4 +929,34 @@ contract DotHypeResolverTest is Test {
         assertEq(resolver.getName(bob), string(abi.encodePacked(aliceName, ".hype")));
         assertEq(resolver.getValue(bob, "email"), email);
     }
+
+    /**
+     * @dev Test address record changes and ownership transfer behavior
+     * This test demonstrates expected behavior that currently FAILS due to resolver implementation
+     */
+    function testAddressRecordAndOwnershipTransfer() public {
+        address customAddress = address(0x999);
+        
+        // Initially, alice's node should resolve to alice (the owner)
+        assertEq(resolver.addr(aliceNode), alice);
+        
+        // Alice sets a custom address record
+        vm.startPrank(alice);
+        resolver.setAddr(aliceNode, customAddress);
+        vm.stopPrank();
+        
+        // Node should now resolve to the custom address
+        assertEq(resolver.addr(aliceNode), customAddress);
+        
+        // Transfer the domain from alice to bob
+        vm.prank(alice);
+        registry.transferFrom(alice, bob, uint256(aliceNode));
+        
+        // Verify the transfer worked
+        assertEq(registry.ownerOf(uint256(aliceNode)), bob);
+        
+        // EXPECTED BEHAVIOR: After ownership transfer, the node should resolve to the new owner (bob)
+        // This assertion should FAIL because the resolver keeps the old address record
+        assertEq(resolver.addr(aliceNode), bob);
+    }
 }
