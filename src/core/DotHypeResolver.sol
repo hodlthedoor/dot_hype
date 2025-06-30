@@ -53,6 +53,13 @@ contract DotHypeResolver is
     // Simple reverse resolution mapping
     mapping(address => bytes32) private _reverseRecords; // address => domain node
 
+    // Single delegate mapping: node => owner => delegate
+    mapping(bytes32 => mapping(address => address)) private _delegates;
+
+    // Events for delegation
+    event DelegateSet(bytes32 indexed node, address indexed owner, address indexed delegate);
+    event DelegateCleared(bytes32 indexed node, address indexed owner, address indexed previousDelegate);
+
     /**
      * @dev Modifier to ensure domain is active (not expired)
      * @param node The namehash of the domain
@@ -386,14 +393,84 @@ contract DotHypeResolver is
 
     /**
      * @dev Overrides the authorised function in ResolverBase
-     * Checks if the sender is authorized to update the record
+     * Checks if the sender is authorised to update the record (owner or delegate)
      * @param node The namehash of the domain
      */
     function isAuthorised(bytes32 node) internal view override returns (bool) {
         try IERC721(address(registry)).ownerOf(uint256(node)) returns (address domainOwner) {
-            return msg.sender == domainOwner;
+            // Check if sender is the domain owner
+            if (msg.sender == domainOwner) {
+                return true;
+            }
+            
+            // Check if sender is an approved delegate for the current owner
+            return _delegates[node][domainOwner] == msg.sender;
         } catch {
             // If the token doesn't exist, no one is authorised
+            return false;
+        }
+    }
+
+    /**
+     * @dev Sets a delegate for a specific domain
+     * @param node The namehash of the domain
+     * @param delegate The address to set as delegate (use address(0) to clear)
+     */
+    function setDelegate(bytes32 node, address delegate) public {
+        // Get the current domain owner
+        address domainOwner;
+        try IERC721(address(registry)).ownerOf(uint256(node)) returns (address owner) {
+            domainOwner = owner;
+        } catch {
+            revert InvalidNode(node);
+        }
+
+        // Only the domain owner can set delegates
+        require(msg.sender == domainOwner, "Not domain owner");
+
+        address previousDelegate = _delegates[node][domainOwner];
+        _delegates[node][domainOwner] = delegate;
+        
+        if (delegate == address(0)) {
+            emit DelegateCleared(node, domainOwner, previousDelegate);
+        } else {
+            emit DelegateSet(node, domainOwner, delegate);
+        }
+    }
+
+    /**
+     * @dev Gets the delegate for a domain under a specific owner
+     * @param node The namehash of the domain
+     * @param owner The domain owner
+     * @return The delegate address (address(0) if none set)
+     */
+    function getDelegate(bytes32 node, address owner) public view returns (address) {
+        return _delegates[node][owner];
+    }
+
+    /**
+     * @dev Gets the delegate for the current owner of a domain
+     * @param node The namehash of the domain
+     * @return The delegate address (address(0) if none set)
+     */
+    function getDelegateForCurrentOwner(bytes32 node) public view returns (address) {
+        try IERC721(address(registry)).ownerOf(uint256(node)) returns (address owner) {
+            return _delegates[node][owner];
+        } catch {
+            return address(0);
+        }
+    }
+
+    /**
+     * @dev Checks if an address is the delegate for the current owner of a domain
+     * @param node The namehash of the domain
+     * @param delegate The potential delegate address
+     * @return True if the address is the delegate for the current owner
+     */
+    function isDelegateForCurrentOwner(bytes32 node, address delegate) public view returns (bool) {
+        try IERC721(address(registry)).ownerOf(uint256(node)) returns (address owner) {
+            return _delegates[node][owner] == delegate;
+        } catch {
             return false;
         }
     }
