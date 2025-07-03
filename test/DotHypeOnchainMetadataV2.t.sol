@@ -1,8 +1,8 @@
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.27;
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.13;
 
-import "forge-std/Test.sol";
-import "../src/core/DotHypeOnchainMetadataV2.sol";
+import {Test, console2} from "forge-std/Test.sol";
+import {DotHypeOnchainMetadataV2} from "../src/core/DotHypeOnchainMetadataV2.sol";
 import "../src/core/DotHypeRegistry.sol";
 import "../src/core/DotHypeController.sol";
 import "./mocks/MockPriceOracle.sol";
@@ -13,15 +13,19 @@ contract DotHypeOnchainMetadataV2Test is Test {
     DotHypeController public controller;
     MockPriceOracle public oracle;
 
-    address public owner = address(0x1);
+    address payable public owner;
     address public user1 = address(0x2);
     
     // Mock price parameters
     uint64 constant INITIAL_PRICE = 2000000; // $2.00 (scaled by 1e6)
 
+    // Allow contract to receive ETH
+    receive() external payable {}
+
     function setUp() public {
-        // Deploy registry
+        owner = payable(address(this));
         registry = new DotHypeRegistry(owner, address(this));
+        metadata = new DotHypeOnchainMetadataV2(owner, address(registry));
         
         // Deploy mock oracle
         oracle = new MockPriceOracle(INITIAL_PRICE);
@@ -33,9 +37,6 @@ contract DotHypeOnchainMetadataV2Test is Test {
             address(oracle),
             owner
         );
-        
-        // Deploy metadata contract
-        metadata = new DotHypeOnchainMetadataV2(owner, address(registry));
         
         // Set up permissions
         vm.prank(owner);
@@ -58,45 +59,87 @@ contract DotHypeOnchainMetadataV2Test is Test {
         // Set up merkle root for testing (empty merkle root allows any proof)
         vm.prank(owner);
         controller.setMerkleRoot(bytes32(0));
+
+        // Make sure the owner can receive payments
+        vm.deal(owner, 1 ether);
     }
 
-    function testGenerateSVGWithShortName() public {
+    function test_ShortNameNotTruncated() public view {
+        string memory svg = metadata.generateSVG("short");
+        assertTrue(bytes(svg).length > 0);
+        assertTrue(_containsSubstring(svg, ">short<"));
+    }
+
+    function test_MediumNameNotTruncated() public view {
+        string memory svg = metadata.generateSVG("eighteenchar123");
+        assertTrue(bytes(svg).length > 0);
+        assertTrue(_containsSubstring(svg, ">eighteenchar123<"));
+    }
+
+    function test_LongNameTruncated() public view {
+        string memory svg = metadata.generateSVG("thisislongerthaneighteencharacters");
+        assertTrue(bytes(svg).length > 0);
+        // Check for the truncated format: first8...last8
+        assertTrue(_containsSubstring(svg, ">thisisl...racters<"));
+    }
+
+    function test_ExactlyEighteenNotTruncated() public view {
+        string memory svg = metadata.generateSVG("exactly18character");
+        assertTrue(bytes(svg).length > 0);
+        assertTrue(_containsSubstring(svg, ">exactly18character<"));
+    }
+
+    function testGenerateSVGWithShortName() public view {
         string memory svg = metadata.generateSVG("test");
         
         // Verify the SVG contains the domain name
         assertTrue(bytes(svg).length > 0);
         assertTrue(_containsSubstring(svg, "test"));
-        assertTrue(_containsSubstring(svg, "Feature Text Trial"));
+        assertTrue(_containsSubstring(svg, "Feature Text"));
         assertTrue(_containsSubstring(svg, "58.4413"));
         assertTrue(_containsSubstring(svg, "text-anchor=\"end\""));
-        assertTrue(_containsSubstring(svg, "x=\"520\" y=\"970\""));
+        assertTrue(_containsSubstring(svg, "text-anchor=\"start\""));
+        assertTrue(_containsSubstring(svg, "x=\"530\""));
+        assertTrue(_containsSubstring(svg, "x=\"538\""));
+        assertTrue(_containsSubstring(svg, "LETO"));
+        assertTrue(_containsSubstring(svg, ".HYPE"));
     }
 
-    function testGenerateSVGWithLongName() public {
+    function testGenerateSVGWithLongName() public view {
         string memory svg = metadata.generateSVG("verylongdomainname");
         
         // Verify the SVG contains the domain name
         assertTrue(bytes(svg).length > 0);
         assertTrue(_containsSubstring(svg, "verylongdomainname"));
-        assertTrue(_containsSubstring(svg, "Feature Text Trial"));
+        assertTrue(_containsSubstring(svg, "Feature Text"));
         assertTrue(_containsSubstring(svg, "58.4413"));
+        assertTrue(_containsSubstring(svg, "text-anchor=\"end\""));
+        assertTrue(_containsSubstring(svg, "text-anchor=\"start\""));
+        assertTrue(_containsSubstring(svg, "x=\"530\""));
+        assertTrue(_containsSubstring(svg, "x=\"538\""));
+        assertTrue(_containsSubstring(svg, "LETO"));
+        assertTrue(_containsSubstring(svg, ".HYPE"));
     }
 
-    function testGenerateSVGWithSpecialCharacters() public {
+    function testGenerateSVGWithSpecialCharacters() public view {
         string memory svg = metadata.generateSVG("test-123");
         
         // Verify the SVG contains the domain name
         assertTrue(bytes(svg).length > 0);
         assertTrue(_containsSubstring(svg, "test-123"));
+        assertTrue(_containsSubstring(svg, "text-anchor=\"end\""));
+        assertTrue(_containsSubstring(svg, "text-anchor=\"start\""));
+        assertTrue(_containsSubstring(svg, "x=\"530\""));
+        assertTrue(_containsSubstring(svg, "x=\"538\""));
     }
 
     function testTokenURI() public {
-        // Register a domain first using signature-based registration
+        // Register a domain first
         string memory name = "testdomain";
         uint256 duration = 365 days;
         uint256 price = controller.calculatePrice(name, duration);
         
-        // Set up signature-based registration (like in DotHypeController.t.sol)
+        // Set up signature-based registration
         uint256 signerPrivateKey = 0xA11CE;
         address signer = vm.addr(signerPrivateKey);
         
@@ -105,7 +148,7 @@ contract DotHypeOnchainMetadataV2Test is Test {
         controller.setSigner(signer);
         
         // Prepare registration parameters
-        uint256 maxPrice = 1000 ether;
+        uint256 maxPrice = type(uint256).max; // Allow any price
         uint256 deadline = block.timestamp + 1 hours;
         uint256 nonce = controller.getNextNonce(user1);
         
@@ -135,24 +178,19 @@ contract DotHypeOnchainMetadataV2Test is Test {
         bytes memory signature = abi.encodePacked(r, s, v);
         
         // Register domain with signature
-        vm.deal(user1, price);
+        vm.deal(user1, price * 2); // Give extra ETH to cover any fees
         vm.prank(user1);
         controller.registerWithSignature{value: price}(name, user1, duration, maxPrice, deadline, signature);
-        uint256 tokenId = registry.nameToTokenId(name);
         
-        // Generate token URI
+        uint256 tokenId = registry.nameToTokenId(name);
         string memory uri = metadata.tokenURI(tokenId, name);
         
         // Verify it's a valid data URI with proper format
         assertTrue(_containsSubstring(uri, "data:application/json;base64,"));
         assertTrue(bytes(uri).length > 50); // Should be a substantial base64 string
-        
-        // Verify the base64 part exists and is not empty
-        string memory base64Part = _extractBase64(uri);
-        assertTrue(bytes(base64Part).length > 0);
     }
 
-    function testGenerateJSON() public {
+    function testGenerateJSON() public view {
         string memory name = "testdomain";
         string memory encodedSVG = "test-svg-data";
         uint256 tokenId = 123;
@@ -192,33 +230,5 @@ contract DotHypeOnchainMetadataV2Test is Test {
             }
         }
         return false;
-    }
-
-    // Helper function to extract base64 part from data URI
-    function _extractBase64(string memory _uri) internal pure returns (string memory) {
-        bytes memory uriBytes = bytes(_uri);
-        uint256 startIndex = 0;
-        
-        // Find the start of base64 data
-        for (uint256 i = 0; i < uriBytes.length - 1; i++) {
-            if (uriBytes[i] == ",") {
-                startIndex = i + 1;
-                break;
-            }
-        }
-        
-        bytes memory result = new bytes(uriBytes.length - startIndex);
-        for (uint256 i = 0; i < result.length; i++) {
-            result[i] = uriBytes[startIndex + i];
-        }
-        
-        return string(result);
-    }
-
-    // Helper function to decode base64 (simplified - just returns the input for testing)
-    function _decodeBase64(string memory _encoded) internal pure returns (string memory) {
-        // For testing purposes, we'll just return the input
-        // In a real implementation, you'd need a proper base64 decoder
-        return _encoded;
     }
 } 
