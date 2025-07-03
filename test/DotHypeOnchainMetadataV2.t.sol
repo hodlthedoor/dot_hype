@@ -99,7 +99,7 @@ contract DotHypeOnchainMetadataV2Test is Test {
         assertTrue(_containsSubstring(svg, "58.4413"));
         assertTrue(_containsSubstring(svg, "text-anchor=\"end\""));
         assertTrue(_containsSubstring(svg, "text-anchor=\"start\""));
-        assertTrue(_containsSubstring(svg, "x=\"530\""));
+        assertTrue(_containsSubstring(svg, "x=\"534\""));
         assertTrue(_containsSubstring(svg, "x=\"538\""));
         assertTrue(_containsSubstring(svg, "LETO"));
         assertTrue(_containsSubstring(svg, ".HYPE"));
@@ -115,7 +115,7 @@ contract DotHypeOnchainMetadataV2Test is Test {
         assertTrue(_containsSubstring(svg, "58.4413"));
         assertTrue(_containsSubstring(svg, "text-anchor=\"end\""));
         assertTrue(_containsSubstring(svg, "text-anchor=\"start\""));
-        assertTrue(_containsSubstring(svg, "x=\"530\""));
+        assertTrue(_containsSubstring(svg, "x=\"534\""));
         assertTrue(_containsSubstring(svg, "x=\"538\""));
         assertTrue(_containsSubstring(svg, "LETO"));
         assertTrue(_containsSubstring(svg, ".HYPE"));
@@ -129,7 +129,7 @@ contract DotHypeOnchainMetadataV2Test is Test {
         assertTrue(_containsSubstring(svg, "test-123"));
         assertTrue(_containsSubstring(svg, "text-anchor=\"end\""));
         assertTrue(_containsSubstring(svg, "text-anchor=\"start\""));
-        assertTrue(_containsSubstring(svg, "x=\"530\""));
+        assertTrue(_containsSubstring(svg, "x=\"534\""));
         assertTrue(_containsSubstring(svg, "x=\"538\""));
     }
 

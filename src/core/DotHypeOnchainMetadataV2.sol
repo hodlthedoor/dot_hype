@@ -61,20 +61,20 @@ contract DotHypeOnchainMetadataV2 is Ownable, IDotHypeMetadata {
             return name;
         }
         
-        // Get first 8 characters
-        bytes memory first8 = new bytes(8);
-        for (uint i = 0; i < 8; i++) {
-            first8[i] = nameBytes[i];
+        // Get first 7 characters
+        bytes memory first7 = new bytes(7);
+        for (uint i = 0; i < 7; i++) {
+            first7[i] = nameBytes[i];
         }
         
-        // Get last 8 characters
-        bytes memory last8 = new bytes(8);
-        for (uint i = 0; i < 8; i++) {
-            last8[i] = nameBytes[nameBytes.length - 8 + i];
+        // Get last 7 characters
+        bytes memory last7 = new bytes(7);
+        for (uint i = 0; i < 7; i++) {
+            last7[i] = nameBytes[nameBytes.length - 7 + i];
         }
         
         // Combine with "..."
-        return string(abi.encodePacked(string(first8), "...", string(last8)));
+        return string(abi.encodePacked(string(first7), "...", string(last7)));
     }
 
     /**
