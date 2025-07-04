@@ -130,7 +130,7 @@ contract DotHypeOnchainMetadataV2 is Ownable, IDotHypeMetadata {
             abi.encodePacked(
                 '{"name":"',
                 name,
-                '.hype","description":"A .hype domain on the Hyperliquid network","image":"data:image/svg+xml;base64,',
+                '.hype","description":"A .hype identity on HyperEVM","image":"data:image/svg+xml;base64,',
                 encodedSVG,
                 '","attributes":[{"trait_type":"Name","value":"',
                 name,
