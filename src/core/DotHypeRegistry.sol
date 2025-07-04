@@ -288,8 +288,8 @@ contract DotHypeRegistry is ERC721, Ownable, IDotHypeRegistry {
      * @dev Override _update to prevent transfers of expired domains
      */
     function _update(address to, uint256 tokenId, address auth) internal override returns (address) {
-        // For minting, allow it to proceed
-        if (auth == address(0)) {
+        // For minting and burning, allow it to proceed
+        if (auth == address(0) || to == address(0)) {
             return super._update(to, tokenId, auth);
         }
 
