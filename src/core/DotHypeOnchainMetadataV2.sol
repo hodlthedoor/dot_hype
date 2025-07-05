@@ -140,7 +140,7 @@ contract DotHypeOnchainMetadataV2 is Ownable, IDotHypeMetadata {
                 tokenId.toString(),
                 '"},{"trait_type":"Expiry","value":"',
                 expiry.toString(),
-                '"},{"trait_type":"Version","value":"V2"}]}'
+                '"}]}'
             )
         );
     }
