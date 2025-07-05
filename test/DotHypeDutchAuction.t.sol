@@ -362,7 +362,7 @@ contract DotHypeDutchAuctionTest is Test {
         // Attempting to register with merkle proof should now fail (security fix)
         vm.prank(user);
         vm.deal(user, totalPrice);
-        
+
         // EXPECTED: This should revert with DomainInAuction error
         vm.expectRevert(abi.encodeWithSignature("DomainInAuction(string)", "merkle"));
         dutchAuction.registerWithMerkleProof{value: totalPrice}("merkle", 365 days, proof);

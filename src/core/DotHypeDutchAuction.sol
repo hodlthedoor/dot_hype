@@ -373,18 +373,18 @@ contract DotHypeDutchAuction is DotHypeController {
     function _checkDomainNotInAuction(string memory name) internal view override {
         bytes32 nameHash = keccak256(bytes(name));
         uint256 batchId = domainToBatchId[nameHash];
-        
+
         if (batchId == 0) {
             return; // Domain not in any auction
         }
 
         DutchAuctionConfig memory config = auctionBatches[batchId];
-        
+
         // Check if auction is active AND not expired
         if (config.isActive) {
             uint256 auctionEndTime = config.startTime + config.auctionDuration;
             bool isExpired = block.timestamp >= auctionEndTime;
-            
+
             if (!isExpired) {
                 revert DomainInAuction(name);
             }

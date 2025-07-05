@@ -9,10 +9,11 @@ interface IDotHypeRegistry {
     /**
      * @dev Event emitted when a name is registered
      * @param tokenId The token ID of the registered name
+     * @param name The name of the registered name
      * @param owner The address that owns the name
      * @param expiry The timestamp when the registration expires
      */
-    event NameRegistered(uint256 indexed tokenId, address indexed owner, uint256 expiry);
+    event NameRegistered(uint256 indexed tokenId, string name, address indexed owner, uint256 expiry);
 
     /**
      * @dev Event emitted when a name registration is renewed

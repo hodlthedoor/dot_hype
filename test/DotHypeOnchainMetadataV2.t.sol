@@ -15,7 +15,7 @@ contract DotHypeOnchainMetadataV2Test is Test {
 
     address payable public owner;
     address public user1 = address(0x2);
-    
+
     // Mock price parameters
     uint64 constant INITIAL_PRICE = 2000000; // $2.00 (scaled by 1e6)
 
@@ -26,10 +26,10 @@ contract DotHypeOnchainMetadataV2Test is Test {
         owner = payable(address(this));
         registry = new DotHypeRegistry(owner, address(this));
         metadata = new DotHypeOnchainMetadataV2(owner, address(registry));
-        
+
         // Deploy mock oracle
         oracle = new MockPriceOracle(INITIAL_PRICE);
-        
+
         // Deploy controller
         controller = new DotHypeController(
             address(registry),
@@ -37,13 +37,13 @@ contract DotHypeOnchainMetadataV2Test is Test {
             address(oracle),
             owner
         );
-        
+
         // Set up permissions
         vm.prank(owner);
         registry.setController(address(controller));
         vm.prank(owner);
         registry.setMetadataProvider(address(metadata));
-        
+
         // Set up pricing for the controller
         uint256[5] memory prices = [
             uint256(0), // 1 character: unavailable
@@ -52,10 +52,10 @@ contract DotHypeOnchainMetadataV2Test is Test {
             uint256(10 ether), // 4 characters: $10 per year
             uint256(1 ether) // 5+ characters: $1 per year
         ];
-        
+
         vm.prank(owner);
         controller.setAllAnnualPrices(prices);
-        
+
         // Set up merkle root for testing (empty merkle root allows any proof)
         vm.prank(owner);
         controller.setMerkleRoot(bytes32(0));
@@ -91,7 +91,7 @@ contract DotHypeOnchainMetadataV2Test is Test {
 
     function testGenerateSVGWithShortName() public view {
         string memory svg = metadata.generateSVG("test");
-        
+
         // Verify the SVG contains the domain name
         assertTrue(bytes(svg).length > 0);
         assertTrue(_containsSubstring(svg, "test"));
@@ -107,7 +107,7 @@ contract DotHypeOnchainMetadataV2Test is Test {
 
     function testGenerateSVGWithLongName() public view {
         string memory svg = metadata.generateSVG("verylongdomainname");
-        
+
         // Verify the SVG contains the domain name
         assertTrue(bytes(svg).length > 0);
         assertTrue(_containsSubstring(svg, "verylongdomainname"));
@@ -123,7 +123,7 @@ contract DotHypeOnchainMetadataV2Test is Test {
 
     function testGenerateSVGWithSpecialCharacters() public view {
         string memory svg = metadata.generateSVG("test-123");
-        
+
         // Verify the SVG contains the domain name
         assertTrue(bytes(svg).length > 0);
         assertTrue(_containsSubstring(svg, "test-123"));
@@ -138,29 +138,29 @@ contract DotHypeOnchainMetadataV2Test is Test {
         string memory name = "testdomain";
         uint256 duration = 365 days;
         uint256 price = controller.calculatePrice(name, duration);
-        
+
         // Set up signature-based registration
         uint256 signerPrivateKey = 0xA11CE;
         address signer = vm.addr(signerPrivateKey);
-        
+
         // Update controller to use this signer
         vm.prank(owner);
         controller.setSigner(signer);
-        
+
         // Prepare registration parameters
         uint256 maxPrice = type(uint256).max; // Allow any price
         uint256 deadline = block.timestamp + 1 hours;
         uint256 nonce = controller.getNextNonce(user1);
-        
+
         // Create EIP-712 digest
         bytes32 REGISTRATION_TYPEHASH = keccak256(
             "Registration(string name,address owner,uint256 duration,uint256 maxPrice,uint256 deadline,uint256 nonce)"
         );
-        
+
         bytes32 structHash = keccak256(
             abi.encode(REGISTRATION_TYPEHASH, keccak256(bytes(name)), user1, duration, maxPrice, deadline, nonce)
         );
-        
+
         bytes32 domainSeparator = keccak256(
             abi.encode(
                 keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
@@ -170,21 +170,21 @@ contract DotHypeOnchainMetadataV2Test is Test {
                 address(controller)
             )
         );
-        
+
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
-        
+
         // Sign the digest
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKey, digest);
         bytes memory signature = abi.encodePacked(r, s, v);
-        
+
         // Register domain with signature
         vm.deal(user1, price * 2); // Give extra ETH to cover any fees
         vm.prank(user1);
         controller.registerWithSignature{value: price}(name, user1, duration, maxPrice, deadline, signature);
-        
+
         uint256 tokenId = registry.nameToTokenId(name);
         string memory uri = metadata.tokenURI(tokenId, name);
-        
+
         // Verify it's a valid data URI with proper format
         assertTrue(_containsSubstring(uri, "data:application/json;base64,"));
         assertTrue(bytes(uri).length > 50); // Should be a substantial base64 string
@@ -195,31 +195,31 @@ contract DotHypeOnchainMetadataV2Test is Test {
         string memory encodedSVG = "test-svg-data";
         uint256 tokenId = 123;
         uint256 expiry = block.timestamp + 365 days;
-        
+
         string memory json = metadata.generateJSON(name, encodedSVG, tokenId, expiry);
-        
+
         // Verify JSON structure
         assertTrue(_containsSubstring(json, "testdomain.hype"));
-        assertTrue(_containsSubstring(json, "A .hype domain on the Hyperliquid network"));
+        assertTrue(_containsSubstring(json, "A .hype identity on HyperEVM"));
         assertTrue(_containsSubstring(json, "data:image/svg+xml;base64,test-svg-data"));
         assertTrue(_containsSubstring(json, "\"trait_type\":\"Name\",\"value\":\"testdomain\""));
         assertTrue(_containsSubstring(json, "\"trait_type\":\"Length\",\"value\":10"));
         assertTrue(_containsSubstring(json, "\"trait_type\":\"Token ID\",\"value\":\"123\""));
-        assertTrue(_containsSubstring(json, "\"trait_type\":\"Version\",\"value\":\"V2\""));
+        assertTrue(_containsSubstring(json, "\"trait_type\":\"Expiry\",\"value\":\""));
     }
 
     // Helper function to check if a string contains a substring
     function _containsSubstring(string memory _string, string memory _substring) internal pure returns (bool) {
         bytes memory stringBytes = bytes(_string);
         bytes memory substringBytes = bytes(_substring);
-        
+
         if (substringBytes.length > stringBytes.length) {
             return false;
         }
-        
-        for (uint i = 0; i <= stringBytes.length - substringBytes.length; i++) {
+
+        for (uint256 i = 0; i <= stringBytes.length - substringBytes.length; i++) {
             bool found = true;
-            for (uint j = 0; j < substringBytes.length; j++) {
+            for (uint256 j = 0; j < substringBytes.length; j++) {
                 if (stringBytes[i + j] != substringBytes[j]) {
                     found = false;
                     break;
@@ -231,4 +231,4 @@ contract DotHypeOnchainMetadataV2Test is Test {
         }
         return false;
     }
-} 
+}

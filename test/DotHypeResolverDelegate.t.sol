@@ -60,15 +60,15 @@ contract DotHypeResolverDelegateTest is Test {
         // Initially no delegate should be set
         assertEq(resolver.getDelegateForCurrentOwner(aliceNode), address(0));
         assertEq(resolver.getDelegate(aliceNode, alice), address(0));
-        
+
         // Alice sets delegate1 as her delegate
         vm.expectEmit(true, true, true, true);
         emit DotHypeResolver.DelegateSet(aliceNode, alice, delegate1);
-        
+
         vm.startPrank(alice);
         resolver.setDelegate(aliceNode, delegate1);
         vm.stopPrank();
-        
+
         // Verify delegate was set
         assertEq(resolver.getDelegateForCurrentOwner(aliceNode), delegate1);
         assertEq(resolver.getDelegate(aliceNode, alice), delegate1);
@@ -84,18 +84,18 @@ contract DotHypeResolverDelegateTest is Test {
         vm.startPrank(alice);
         resolver.setDelegate(aliceNode, delegate1);
         vm.stopPrank();
-        
+
         // Verify delegate is set
         assertEq(resolver.getDelegateForCurrentOwner(aliceNode), delegate1);
-        
+
         // Alice clears the delegate
         vm.expectEmit(true, true, true, true);
         emit DotHypeResolver.DelegateCleared(aliceNode, alice, delegate1);
-        
+
         vm.startPrank(alice);
         resolver.setDelegate(aliceNode, address(0));
         vm.stopPrank();
-        
+
         // Verify delegate is cleared
         assertEq(resolver.getDelegateForCurrentOwner(aliceNode), address(0));
         assertFalse(resolver.isDelegateForCurrentOwner(aliceNode, delegate1));
@@ -109,18 +109,18 @@ contract DotHypeResolverDelegateTest is Test {
         vm.startPrank(alice);
         resolver.setDelegate(aliceNode, delegate1);
         vm.stopPrank();
-        
+
         // Verify delegate1 is set
         assertEq(resolver.getDelegateForCurrentOwner(aliceNode), delegate1);
-        
+
         // Alice replaces with delegate2
         vm.expectEmit(true, true, true, true);
         emit DotHypeResolver.DelegateSet(aliceNode, alice, delegate2);
-        
+
         vm.startPrank(alice);
         resolver.setDelegate(aliceNode, delegate2);
         vm.stopPrank();
-        
+
         // Verify delegate2 is now set and delegate1 is not
         assertEq(resolver.getDelegateForCurrentOwner(aliceNode), delegate2);
         assertTrue(resolver.isDelegateForCurrentOwner(aliceNode, delegate2));
@@ -136,18 +136,18 @@ contract DotHypeResolverDelegateTest is Test {
         vm.expectRevert("Not domain owner");
         resolver.setDelegate(aliceNode, delegate1);
         vm.stopPrank();
-        
+
         // Charlie tries to set a delegate for Alice's domain - should fail
         vm.startPrank(charlie);
         vm.expectRevert("Not domain owner");
         resolver.setDelegate(aliceNode, delegate1);
         vm.stopPrank();
-        
+
         // Alice can set her own delegate - should succeed
         vm.startPrank(alice);
         resolver.setDelegate(aliceNode, delegate1);
         vm.stopPrank();
-        
+
         assertEq(resolver.getDelegateForCurrentOwner(aliceNode), delegate1);
     }
 
@@ -159,16 +159,16 @@ contract DotHypeResolverDelegateTest is Test {
         vm.startPrank(alice);
         resolver.setDelegate(aliceNode, delegate1);
         vm.stopPrank();
-        
+
         // Initially, address should resolve to alice (the owner)
         assertEq(resolver.addr(aliceNode), alice);
-        
+
         // Delegate1 sets a custom address
         address customAddress = address(0x999);
         vm.startPrank(delegate1);
         resolver.setAddr(aliceNode, customAddress);
         vm.stopPrank();
-        
+
         // Address should now resolve to the custom address
         assertEq(resolver.addr(aliceNode), customAddress);
     }
@@ -179,18 +179,18 @@ contract DotHypeResolverDelegateTest is Test {
     function testDelegateCanUpdateTextRecords() public {
         string memory email = "alice@example.com";
         string memory twitter = "@alice";
-        
+
         // Alice sets delegate1 as her delegate
         vm.startPrank(alice);
         resolver.setDelegate(aliceNode, delegate1);
         vm.stopPrank();
-        
+
         // Delegate1 sets text records
         vm.startPrank(delegate1);
         resolver.setText(aliceNode, "email", email);
         resolver.setText(aliceNode, "twitter", twitter);
         vm.stopPrank();
-        
+
         // Verify text records were set
         assertEq(resolver.text(aliceNode, "email"), email);
         assertEq(resolver.text(aliceNode, "twitter"), twitter);
@@ -201,17 +201,17 @@ contract DotHypeResolverDelegateTest is Test {
      */
     function testDelegateCanUpdateContentHash() public {
         bytes memory contentHash = hex"ee301017012204eff6f9a26dbef5e8720fabf993879d2d6c9aba90326a7a6add70dbec041461";
-        
+
         // Alice sets delegate1 as her delegate
         vm.startPrank(alice);
         resolver.setDelegate(aliceNode, delegate1);
         vm.stopPrank();
-        
+
         // Delegate1 sets content hash
         vm.startPrank(delegate1);
         resolver.setContenthash(aliceNode, contentHash);
         vm.stopPrank();
-        
+
         // Verify content hash was set
         assertEq(resolver.contenthash(aliceNode), contentHash);
     }
@@ -222,23 +222,23 @@ contract DotHypeResolverDelegateTest is Test {
     function testDelegateCanClearRecords() public {
         string memory email = "alice@example.com";
         address customAddress = address(0x999);
-        
+
         // Alice sets delegate1 and some records
         vm.startPrank(alice);
         resolver.setDelegate(aliceNode, delegate1);
         resolver.setAddr(aliceNode, customAddress);
         resolver.setText(aliceNode, "email", email);
         vm.stopPrank();
-        
+
         // Verify records are set
         assertEq(resolver.addr(aliceNode), customAddress);
         assertEq(resolver.text(aliceNode, "email"), email);
-        
+
         // Delegate1 clears all records
         vm.startPrank(delegate1);
         resolver.clearRecords(aliceNode);
         vm.stopPrank();
-        
+
         // Records should be cleared (address falls back to owner)
         assertEq(resolver.addr(aliceNode), alice);
         assertEq(resolver.text(aliceNode, "email"), "");
@@ -252,19 +252,19 @@ contract DotHypeResolverDelegateTest is Test {
         vm.startPrank(alice);
         resolver.setDelegate(aliceNode, delegate1);
         vm.stopPrank();
-        
+
         // Bob (not a delegate) tries to update records - should fail
         vm.startPrank(bob);
         vm.expectRevert();
         resolver.setAddr(aliceNode, bob);
-        
+
         vm.expectRevert();
         resolver.setText(aliceNode, "email", "bob@example.com");
-        
+
         vm.expectRevert();
         resolver.setContenthash(aliceNode, bytes("fake-hash"));
         vm.stopPrank();
-        
+
         // Charlie (not a delegate) tries to update records - should fail
         vm.startPrank(charlie);
         vm.expectRevert();
@@ -280,32 +280,32 @@ contract DotHypeResolverDelegateTest is Test {
         vm.startPrank(alice);
         resolver.setDelegate(aliceNode, delegate1);
         vm.stopPrank();
-        
+
         // Verify delegate1 can update records
         vm.startPrank(delegate1);
         resolver.setAddr(aliceNode, delegate1);
         vm.stopPrank();
         assertEq(resolver.addr(aliceNode), delegate1);
-        
+
         // Alice transfers domain to Bob
         vm.startPrank(alice);
         registry.transferFrom(alice, bob, uint256(aliceNode));
         vm.stopPrank();
-        
+
         // Verify transfer worked
         assertEq(registry.ownerOf(uint256(aliceNode)), bob);
-        
+
         // Alice's delegate should no longer work
         vm.startPrank(delegate1);
         vm.expectRevert();
         resolver.setAddr(aliceNode, address(0x888));
         vm.stopPrank();
-        
+
         // Bob should be able to set his own delegate
         vm.startPrank(bob);
         resolver.setDelegate(aliceNode, delegate2);
         vm.stopPrank();
-        
+
         // delegate2 should now be able to update records
         vm.startPrank(delegate2);
         resolver.setAddr(aliceNode, address(0x777));
@@ -321,32 +321,32 @@ contract DotHypeResolverDelegateTest is Test {
         vm.startPrank(alice);
         resolver.setDelegate(aliceNode, delegate1);
         vm.stopPrank();
-        
+
         // Bob sets delegate2 for his domain
         vm.startPrank(bob);
         resolver.setDelegate(bobNode, delegate2);
         vm.stopPrank();
-        
+
         // Verify delegates are set correctly
         assertEq(resolver.getDelegateForCurrentOwner(aliceNode), delegate1);
         assertEq(resolver.getDelegateForCurrentOwner(bobNode), delegate2);
-        
+
         // delegate1 can update Alice's domain but not Bob's
         vm.startPrank(delegate1);
         resolver.setAddr(aliceNode, delegate1);
-        
+
         vm.expectRevert();
         resolver.setAddr(bobNode, delegate1);
         vm.stopPrank();
-        
+
         // delegate2 can update Bob's domain but not Alice's
         vm.startPrank(delegate2);
         resolver.setAddr(bobNode, delegate2);
-        
+
         vm.expectRevert();
         resolver.setAddr(aliceNode, delegate2);
         vm.stopPrank();
-        
+
         // Verify addresses are set correctly
         assertEq(resolver.addr(aliceNode), delegate1);
         assertEq(resolver.addr(bobNode), delegate2);
@@ -357,15 +357,15 @@ contract DotHypeResolverDelegateTest is Test {
      */
     function testDelegateWithInvalidNode() public {
         bytes32 invalidNode = bytes32(uint256(999999));
-        
+
         // Alice tries to set delegate for non-existent node
         vm.startPrank(alice);
         vm.expectRevert();
         resolver.setDelegate(invalidNode, delegate1);
         vm.stopPrank();
-        
+
         // Check delegate functions with invalid node
         assertEq(resolver.getDelegateForCurrentOwner(invalidNode), address(0));
         assertFalse(resolver.isDelegateForCurrentOwner(invalidNode, delegate1));
     }
-} 
+}

@@ -7,12 +7,11 @@ import "../src/core/DotHypeOnchainMetadataV2.sol";
 /**
  * @title DeployDotHypeMetadataV2
  * @dev Deployment script for DotHype Onchain Metadata V2 contract
- * 
+ *
  * Usage:
  * forge script script/DeployDotHypeMetadataV2.s.sol:DeployDotHypeMetadataV2 --sig "run(address)" $REGISTRY_ADDRESS --rpc-url $RPC_URL --broadcast --verifier sourcify --verifier-url https://sourcify.parsec.finance/verify
  */
 contract DeployDotHypeMetadataV2 is Script {
-    
     function run(address registryAddress) public {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
@@ -30,4 +29,4 @@ contract DeployDotHypeMetadataV2 is Script {
         console.log("--- Deployment Complete ---");
         console.log("DotHypeOnchainMetadataV2:", address(metadataV2));
     }
-} 
+}

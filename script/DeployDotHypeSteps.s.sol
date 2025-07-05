@@ -11,7 +11,7 @@ import "../src/core/HypeOracle.sol";
 /**
  * @title DeployDotHypeSteps
  * @dev Step-by-step deployment script for DotHype contracts
- * 
+ *
  * Usage (with verification):
  * Step 1: forge script script/DeployDotHypeSteps.s.sol:DeployDotHypeSteps --sig "step1()" --rpc-url $RPC_URL --broadcast --verifier sourcify --verifier-url https://sourcify.dev/server
  * Step 2: forge script script/DeployDotHypeSteps.s.sol:DeployDotHypeSteps --sig "step2(address)" $ORACLE_ADDRESS --rpc-url $RPC_URL --broadcast --verifier sourcify --verifier-url https://sourcify.parsec.finance/verify
@@ -59,12 +59,16 @@ contract DeployDotHypeSteps is Script {
         console.log("VERIFICATION: To verify this contract, run:");
         console.log("forge verify-contract");
         console.log(address(oracle));
-        console.log("src/core/HypeOracle.sol:HypeOracle --rpc-url hyperliquid-test --verifier sourcify --verifier-url https://sourcify.parsec.finance/verify --chain-id 998 --compiler-version v0.8.27+commit.6d32f4a7");
+        console.log(
+            "src/core/HypeOracle.sol:HypeOracle --rpc-url hyperliquid-test --verifier sourcify --verifier-url https://sourcify.parsec.finance/verify --chain-id 998 --compiler-version v0.8.27+commit.6d32f4a7"
+        );
         console.log("");
         console.log("NEXT STEP: Run step2 with the oracle address:");
         console.log("forge script script/DeployDotHypeSteps.s.sol:DeployDotHypeSteps --sig \"step2(address)\"");
         console.log(address(oracle));
-        console.log("--rpc-url $RPC_URL --broadcast --verifier sourcify --verifier-url https://sourcify.parsec.finance/verify");
+        console.log(
+            "--rpc-url $RPC_URL --broadcast --verifier sourcify --verifier-url https://sourcify.parsec.finance/verify"
+        );
         console.log("");
     }
 
@@ -92,7 +96,9 @@ contract DeployDotHypeSteps is Script {
         console.log("VERIFICATION: To verify this contract, run:");
         console.log("forge verify-contract");
         console.log(address(registry));
-        console.log("src/core/DotHypeRegistry.sol:DotHypeRegistry --rpc-url hyperliquid-test --verifier sourcify --verifier-url https://sourcify.parsec.finance/verify --chain-id 998 --compiler-version v0.8.27+commit.6d32f4a7 --constructor-args $(cast abi-encode \"constructor(address,address)\"");
+        console.log(
+            "src/core/DotHypeRegistry.sol:DotHypeRegistry --rpc-url hyperliquid-test --verifier sourcify --verifier-url https://sourcify.parsec.finance/verify --chain-id 998 --compiler-version v0.8.27+commit.6d32f4a7 --constructor-args $(cast abi-encode \"constructor(address,address)\""
+        );
         console.log(deployer);
         console.log(deployer);
         console.log(")");
@@ -100,7 +106,9 @@ contract DeployDotHypeSteps is Script {
         console.log("NEXT STEP: Run step3 with the registry address:");
         console.log("forge script script/DeployDotHypeSteps.s.sol:DeployDotHypeSteps --sig \"step3(address)\"");
         console.log(address(registry));
-        console.log("--rpc-url $RPC_URL --broadcast --verifier sourcify --verifier-url https://sourcify.parsec.finance/verify");
+        console.log(
+            "--rpc-url $RPC_URL --broadcast --verifier sourcify --verifier-url https://sourcify.parsec.finance/verify"
+        );
         console.log("");
     }
 
@@ -128,7 +136,9 @@ contract DeployDotHypeSteps is Script {
         console.log("VERIFICATION: To verify this contract, run:");
         console.log("forge verify-contract");
         console.log(address(resolver));
-        console.log("src/core/DotHypeResolver.sol:DotHypeResolver --rpc-url hyperliquid-test --verifier sourcify --verifier-url https://sourcify.parsec.finance/verify --chain-id 998 --compiler-version v0.8.27+commit.6d32f4a7 --constructor-args $(cast abi-encode \"constructor(address,address)\"");
+        console.log(
+            "src/core/DotHypeResolver.sol:DotHypeResolver --rpc-url hyperliquid-test --verifier sourcify --verifier-url https://sourcify.parsec.finance/verify --chain-id 998 --compiler-version v0.8.27+commit.6d32f4a7 --constructor-args $(cast abi-encode \"constructor(address,address)\""
+        );
         console.log(deployer);
         console.log(registryAddress);
         console.log(")");
@@ -136,7 +146,9 @@ contract DeployDotHypeSteps is Script {
         console.log("NEXT STEP: Run step4 with the registry address:");
         console.log("forge script script/DeployDotHypeSteps.s.sol:DeployDotHypeSteps --sig \"step4(address)\"");
         console.log(registryAddress);
-        console.log("--rpc-url $RPC_URL --broadcast --verifier sourcify --verifier-url https://sourcify.parsec.finance/verify");
+        console.log(
+            "--rpc-url $RPC_URL --broadcast --verifier sourcify --verifier-url https://sourcify.parsec.finance/verify"
+        );
         console.log("");
     }
 
@@ -164,7 +176,9 @@ contract DeployDotHypeSteps is Script {
         console.log("VERIFICATION: To verify this contract, run:");
         console.log("forge verify-contract");
         console.log(address(metadata));
-        console.log("src/core/DotHypeOnchainMetadata.sol:DotHypeOnchainMetadata --rpc-url hyperliquid-test --verifier sourcify --verifier-url https://sourcify.parsec.finance/verify --chain-id 998 --compiler-version v0.8.27+commit.6d32f4a7 --constructor-args $(cast abi-encode \"constructor(address,address)\"");
+        console.log(
+            "src/core/DotHypeOnchainMetadata.sol:DotHypeOnchainMetadata --rpc-url hyperliquid-test --verifier sourcify --verifier-url https://sourcify.parsec.finance/verify --chain-id 998 --compiler-version v0.8.27+commit.6d32f4a7 --constructor-args $(cast abi-encode \"constructor(address,address)\""
+        );
         console.log(deployer);
         console.log(registryAddress);
         console.log(")");
@@ -205,7 +219,9 @@ contract DeployDotHypeSteps is Script {
         console.log("Note: You'll need the oracle address from step 1");
         console.log("forge script script/DeployDotHypeSteps.s.sol:DeployDotHypeSteps --sig \"step6(address,address)\"");
         console.log(registryAddress);
-        console.log("<ORACLE_ADDRESS> --rpc-url $RPC_URL --broadcast --verifier sourcify --verifier-url https://sourcify.parsec.finance/verify");
+        console.log(
+            "<ORACLE_ADDRESS> --rpc-url $RPC_URL --broadcast --verifier sourcify --verifier-url https://sourcify.parsec.finance/verify"
+        );
         console.log("");
     }
 
@@ -240,7 +256,9 @@ contract DeployDotHypeSteps is Script {
         console.log("VERIFICATION: To verify this contract, run:");
         console.log("forge verify-contract");
         console.log(address(dutchAuction));
-        console.log("src/core/DotHypeDutchAuction.sol:DotHypeDutchAuction --rpc-url hyperliquid-test --verifier sourcify --verifier-url https://sourcify.parsec.finance/verify --chain-id 998 --compiler-version v0.8.27+commit.6d32f4a7 --constructor-args $(cast abi-encode \"constructor(address,address,address,address)\"");
+        console.log(
+            "src/core/DotHypeDutchAuction.sol:DotHypeDutchAuction --rpc-url hyperliquid-test --verifier sourcify --verifier-url https://sourcify.parsec.finance/verify --chain-id 998 --compiler-version v0.8.27+commit.6d32f4a7 --constructor-args $(cast abi-encode \"constructor(address,address,address,address)\""
+        );
         console.log(registryAddress);
         console.log(deployer);
         console.log(oracleAddress);
@@ -332,7 +350,9 @@ contract DeployDotHypeSteps is Script {
         console.log("");
         console.log("OPTIONAL SECURITY STEP:");
         console.log("For production deployments, consider running Step 9 to transfer ownership:");
-        console.log("forge script script/DeployDotHypeSteps.s.sol:DeployDotHypeSteps --sig \"step9(address,address,address,address,address)\"");
+        console.log(
+            "forge script script/DeployDotHypeSteps.s.sol:DeployDotHypeSteps --sig \"step9(address,address,address,address,address)\""
+        );
         console.log("# Arguments: <REGISTRY> <RESOLVER> <METADATA> <DUTCH_AUCTION> <NEW_OWNER>");
         console.log("# Example addresses from this deployment:");
         console.log("# Registry:", dutchAuctionAddress, "# (replace with actual registry address)");
@@ -454,32 +474,52 @@ contract DeployDotHypeSteps is Script {
         console.log("=== DotHype Step-by-Step Deployment Guide (with Verification) ===");
         console.log("");
         console.log("Step 1: Deploy HypeOracle");
-        console.log("forge script script/DeployDotHypeSteps.s.sol:DeployDotHypeSteps --sig \"step1()\" --rpc-url $RPC_URL --broadcast --verifier sourcify --verifier-url https://sourcify.parsec.finance/verify");
+        console.log(
+            "forge script script/DeployDotHypeSteps.s.sol:DeployDotHypeSteps --sig \"step1()\" --rpc-url $RPC_URL --broadcast --verifier sourcify --verifier-url https://sourcify.parsec.finance/verify"
+        );
         console.log("");
         console.log("Step 2: Deploy DotHypeRegistry");
-        console.log("forge script script/DeployDotHypeSteps.s.sol:DeployDotHypeSteps --sig \"step2(address)\" <ORACLE_ADDRESS> --rpc-url $RPC_URL --broadcast --verifier sourcify --verifier-url https://sourcify.parsec.finance/verify");
+        console.log(
+            "forge script script/DeployDotHypeSteps.s.sol:DeployDotHypeSteps --sig \"step2(address)\" <ORACLE_ADDRESS> --rpc-url $RPC_URL --broadcast --verifier sourcify --verifier-url https://sourcify.parsec.finance/verify"
+        );
         console.log("");
         console.log("Step 3: Deploy DotHypeResolver");
-        console.log("forge script script/DeployDotHypeSteps.s.sol:DeployDotHypeSteps --sig \"step3(address)\" <REGISTRY_ADDRESS> --rpc-url $RPC_URL --broadcast --verifier sourcify --verifier-url https://sourcify.parsec.finance/verify");
+        console.log(
+            "forge script script/DeployDotHypeSteps.s.sol:DeployDotHypeSteps --sig \"step3(address)\" <REGISTRY_ADDRESS> --rpc-url $RPC_URL --broadcast --verifier sourcify --verifier-url https://sourcify.parsec.finance/verify"
+        );
         console.log("");
         console.log("Step 4: Deploy DotHypeOnchainMetadata");
-        console.log("forge script script/DeployDotHypeSteps.s.sol:DeployDotHypeSteps --sig \"step4(address)\" <REGISTRY_ADDRESS> --rpc-url $RPC_URL --broadcast --verifier sourcify --verifier-url https://sourcify.parsec.finance/verify");
+        console.log(
+            "forge script script/DeployDotHypeSteps.s.sol:DeployDotHypeSteps --sig \"step4(address)\" <REGISTRY_ADDRESS> --rpc-url $RPC_URL --broadcast --verifier sourcify --verifier-url https://sourcify.parsec.finance/verify"
+        );
         console.log("");
         console.log("Step 5: Set Metadata Provider (no verification needed)");
-        console.log("forge script script/DeployDotHypeSteps.s.sol:DeployDotHypeSteps --sig \"step5(address,address)\" <REGISTRY_ADDRESS> <METADATA_ADDRESS> --rpc-url $RPC_URL --broadcast");
+        console.log(
+            "forge script script/DeployDotHypeSteps.s.sol:DeployDotHypeSteps --sig \"step5(address,address)\" <REGISTRY_ADDRESS> <METADATA_ADDRESS> --rpc-url $RPC_URL --broadcast"
+        );
         console.log("");
         console.log("Step 6: Deploy DotHypeDutchAuction");
-        console.log("forge script script/DeployDotHypeSteps.s.sol:DeployDotHypeSteps --sig \"step6(address,address)\" <REGISTRY_ADDRESS> <ORACLE_ADDRESS> --rpc-url $RPC_URL --broadcast --verifier sourcify --verifier-url https://sourcify.parsec.finance/verify");
+        console.log(
+            "forge script script/DeployDotHypeSteps.s.sol:DeployDotHypeSteps --sig \"step6(address,address)\" <REGISTRY_ADDRESS> <ORACLE_ADDRESS> --rpc-url $RPC_URL --broadcast --verifier sourcify --verifier-url https://sourcify.parsec.finance/verify"
+        );
         console.log("");
         console.log("Step 7: Set Controller (no verification needed)");
-        console.log("forge script script/DeployDotHypeSteps.s.sol:DeployDotHypeSteps --sig \"step7(address,address)\" <REGISTRY_ADDRESS> <DUTCH_AUCTION_ADDRESS> --rpc-url $RPC_URL --broadcast");
+        console.log(
+            "forge script script/DeployDotHypeSteps.s.sol:DeployDotHypeSteps --sig \"step7(address,address)\" <REGISTRY_ADDRESS> <DUTCH_AUCTION_ADDRESS> --rpc-url $RPC_URL --broadcast"
+        );
         console.log("");
         console.log("Step 8: Configure Pricing (no verification needed)");
-        console.log("forge script script/DeployDotHypeSteps.s.sol:DeployDotHypeSteps --sig \"step8(address)\" <DUTCH_AUCTION_ADDRESS> --rpc-url $RPC_URL --broadcast");
+        console.log(
+            "forge script script/DeployDotHypeSteps.s.sol:DeployDotHypeSteps --sig \"step8(address)\" <DUTCH_AUCTION_ADDRESS> --rpc-url $RPC_URL --broadcast"
+        );
         console.log("");
         console.log("Step 9: Transfer Ownership (optional security step)");
-        console.log("forge script script/DeployDotHypeSteps.s.sol:DeployDotHypeSteps --sig \"step9(address,address,address,address,address)\" <REGISTRY_ADDRESS> <RESOLVER_ADDRESS> <METADATA_ADDRESS> <DUTCH_AUCTION_ADDRESS> <NEW_OWNER_ADDRESS> --rpc-url $RPC_URL --broadcast");
+        console.log(
+            "forge script script/DeployDotHypeSteps.s.sol:DeployDotHypeSteps --sig \"step9(address,address,address,address,address)\" <REGISTRY_ADDRESS> <RESOLVER_ADDRESS> <METADATA_ADDRESS> <DUTCH_AUCTION_ADDRESS> <NEW_OWNER_ADDRESS> --rpc-url $RPC_URL --broadcast"
+        );
         console.log("");
-        console.log("NOTE: Each deployment step will also output the manual verification command if automatic verification fails.");
+        console.log(
+            "NOTE: Each deployment step will also output the manual verification command if automatic verification fails."
+        );
     }
-} 
+}

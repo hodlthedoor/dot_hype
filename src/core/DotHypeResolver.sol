@@ -150,7 +150,7 @@ contract DotHypeResolver is
      */
     function setAddr(bytes32 node, address a) public virtual authorised(node) onlyActive(node) {
         uint256 version = _recordVersions[node];
-        
+
         // Get the current domain owner
         address domainOwner;
         try IERC721(address(registry)).ownerOf(uint256(node)) returns (address owner) {
@@ -158,7 +158,7 @@ contract DotHypeResolver is
         } catch {
             revert InvalidNode(node);
         }
-        
+
         _addresses[node][version][domainOwner] = a;
         emit AddrChanged(node, a);
     }
@@ -402,7 +402,7 @@ contract DotHypeResolver is
             if (msg.sender == domainOwner) {
                 return true;
             }
-            
+
             // Check if sender is an approved delegate for the current owner
             return _delegates[node][domainOwner] == msg.sender;
         } catch {
@@ -430,7 +430,7 @@ contract DotHypeResolver is
 
         address previousDelegate = _delegates[node][domainOwner];
         _delegates[node][domainOwner] = delegate;
-        
+
         if (delegate == address(0)) {
             emit DelegateCleared(node, domainOwner, previousDelegate);
         } else {

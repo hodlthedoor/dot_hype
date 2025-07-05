@@ -97,8 +97,7 @@ contract DotHypeRegistry is ERC721, Ownable, IDotHypeRegistry {
 
         // Mint the token
         _mint(owner, tokenId);
-
-        emit NameRegistered(tokenId, owner, expiry);
+        emit NameRegistered(tokenId, name, owner, expiry);
     }
 
     function registerSubname(string calldata sublabel, uint256 parentTokenId, address owner, uint256 duration)
@@ -123,7 +122,7 @@ contract DotHypeRegistry is ERC721, Ownable, IDotHypeRegistry {
         _records[tokenId] = NameRecord({name: fullName, expiry: expiry});
         _mint(owner, tokenId);
 
-        emit SubnameRegistered(tokenId, parentTokenId, owner, expiry);
+        emit NameRegistered(tokenId, fullName, owner, expiry);
     }
 
     /**
@@ -150,8 +149,6 @@ contract DotHypeRegistry is ERC721, Ownable, IDotHypeRegistry {
 
         emit NameRenewed(tokenId, expiry);
     }
-
-    event SubnameRegistered(uint256 indexed tokenId, uint256 indexed parentTokenId, address owner, uint256 expiry);
 
     // ▸ ADD helper – pure, so free to call off‑chain too
     function subnameToTokenId(uint256 parentTokenId, string calldata sublabel) public pure returns (uint256 tokenId) {

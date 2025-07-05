@@ -3,6 +3,7 @@ pragma solidity ^0.8.27;
 
 import "forge-std/Test.sol";
 import "../src/core/DotHypeRegistry.sol";
+import "../src/interfaces/IDotHypeRegistry.sol";
 import "../src/core/DotHypeMetadata.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
@@ -541,7 +542,8 @@ contract DotHypeRegistryTest is Test {
 
         // Register subname
         vm.prank(controller);
-        (uint256 subnameTokenId, uint256 subnameExpiry) = registry.registerSubname(sublabel, parentTokenId, user2, duration);
+        (uint256 subnameTokenId, uint256 subnameExpiry) =
+            registry.registerSubname(sublabel, parentTokenId, user2, duration);
 
         // Verify subname registration
         assertEq(registry.ownerOf(subnameTokenId), user2);
@@ -623,7 +625,8 @@ contract DotHypeRegistryTest is Test {
 
         // Register subname first time
         vm.prank(controller);
-        (uint256 subnameTokenId1, uint256 subnameExpiry1) = registry.registerSubname(sublabel, parentTokenId, user2, duration);
+        (uint256 subnameTokenId1, uint256 subnameExpiry1) =
+            registry.registerSubname(sublabel, parentTokenId, user2, duration);
 
         // Verify first registration
         assertEq(registry.ownerOf(subnameTokenId1), user2);
@@ -634,7 +637,8 @@ contract DotHypeRegistryTest is Test {
 
         // Register same subname again (should overwrite)
         vm.prank(controller);
-        (uint256 subnameTokenId2, uint256 subnameExpiry2) = registry.registerSubname(sublabel, parentTokenId, user1, duration);
+        (uint256 subnameTokenId2, uint256 subnameExpiry2) =
+            registry.registerSubname(sublabel, parentTokenId, user1, duration);
 
         // Verify overwrite worked
         assertEq(subnameTokenId1, subnameTokenId2); // Same token ID
@@ -744,7 +748,8 @@ contract DotHypeRegistryTest is Test {
 
         // Register subname
         vm.prank(controller);
-        (uint256 subnameTokenId, uint256 subnameExpiry) = registry.registerSubname(sublabel, parentTokenId, user1, duration);
+        (uint256 subnameTokenId, uint256 subnameExpiry) =
+            registry.registerSubname(sublabel, parentTokenId, user1, duration);
 
         // Move time forward to after subname expiry
         vm.warp(subnameExpiry + 1);
@@ -764,11 +769,12 @@ contract DotHypeRegistryTest is Test {
         vm.prank(controller);
         (uint256 parentTokenId,) = registry.register(parentName, user1, duration);
 
-        // Expect SubnameRegistered event
-        vm.expectEmit(true, true, false, true);
+        // Expect NameRegistered event
+        vm.expectEmit(true, false, true, true);
         uint256 expectedSubnameTokenId = registry.subnameToTokenId(parentTokenId, sublabel);
         uint256 expectedExpiry = block.timestamp + duration;
-        emit DotHypeRegistry.SubnameRegistered(expectedSubnameTokenId, parentTokenId, user2, expectedExpiry);
+        string memory expectedFullName = string.concat(sublabel, ".", parentName);
+        emit IDotHypeRegistry.NameRegistered(expectedSubnameTokenId, expectedFullName, user2, expectedExpiry);
 
         // Register subname
         vm.prank(controller);
@@ -804,7 +810,8 @@ contract DotHypeRegistryTest is Test {
 
         // Register subname
         vm.prank(controller);
-        (uint256 subnameTokenId, uint256 initialExpiry) = registry.registerSubname(sublabel, parentTokenId, user2, duration);
+        (uint256 subnameTokenId, uint256 initialExpiry) =
+            registry.registerSubname(sublabel, parentTokenId, user2, duration);
 
         // Renew subname
         vm.prank(controller);
@@ -826,7 +833,8 @@ contract DotHypeRegistryTest is Test {
 
         // Register subname
         vm.prank(controller);
-        (uint256 subnameTokenId, uint256 subnameExpiry) = registry.registerSubname(sublabel, parentTokenId, user2, duration);
+        (uint256 subnameTokenId, uint256 subnameExpiry) =
+            registry.registerSubname(sublabel, parentTokenId, user2, duration);
 
         // Verify subname is active
         assertTrue(registry.isActive(subnameTokenId));
