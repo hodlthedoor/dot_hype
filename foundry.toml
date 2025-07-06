@@ -18,10 +18,11 @@ gas_reports = ["*"]
 
 [rpc_endpoints]
 hyperliquid-testnet = "https://rpc.hyperliquid-testnet.xyz/evm"
+hyperliquid = "https://rpc.hyperliquid.xyz/evm"
 
 [etherscan]
-hyperliquid = { key = "any", url = "https://sourcify.parsec.finance/verify" }
-hyperliquid-testnet = { key = "any", url = "https://sourcify.parsec.finance/verify" }
+hyperliquid = { key = "any", url = "https://sourcify.dev/server" }
+hyperliquid-testnet = { key = "any", url = "https://sourcify.dev/server" }
 
 # Verification settings
 [profile.verify]
@@ -30,10 +31,13 @@ default_verification_provider = "sourcify"
 
 # Verification provider common settings
 [profile.verify.sourcify]
-url = "https://sourcify.parsec.finance/verify"
+url = "https://sourcify.dev/server"
 
 [profile.hyperliquid-testnet]
 rpc_url = "${rpc_endpoints.hyperliquid-testnet}"
+
+[profile.hyperliquid]
+rpc_url = "${rpc_endpoints.hyperliquid}"
 
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

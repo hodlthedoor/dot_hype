@@ -9,8 +9,8 @@ import "../interfaces/IPriceOracle.sol";
  */
 contract HypeOracle is IPriceOracle {
     address constant PRECOMPILE = 0x0000000000000000000000000000000000000808; // Using 0x808 for spot prices
-    uint32 constant PAIR_ID = 1035;
-    uint32 constant PAIR_ID_MAINNET = 105;
+    uint32 constant PAIR_ID_TESTNET = 1035;
+    uint32 constant PAIR_ID = 107;
     uint256 constant SCALE = 1e6; // 10^(8 − szDecimals)  (szDecimals = 2)
 
     /**

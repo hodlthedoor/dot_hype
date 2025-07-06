@@ -5,7 +5,7 @@ import "forge-std/Script.sol";
 import "../src/core/DotHypeRegistry.sol";
 import "../src/core/DotHypeResolver.sol";
 import "../src/core/DotHypeDutchAuction.sol";
-import "../src/core/DotHypeOnchainMetadata.sol";
+import "../src/core/DotHypeOnchainMetadataV2.sol";
 import "../src/core/HypeOracle.sol";
 
 /**
@@ -18,7 +18,7 @@ import "../src/core/HypeOracle.sol";
  * Step 3: forge script script/DeployDotHypeSteps.s.sol:DeployDotHypeSteps --sig "step3(address)" $REGISTRY_ADDRESS --rpc-url $RPC_URL --broadcast --verifier sourcify --verifier-url https://sourcify.parsec.finance/verify
  * Step 4: forge script script/DeployDotHypeSteps.s.sol:DeployDotHypeSteps --sig "step4(address)" $REGISTRY_ADDRESS --rpc-url $RPC_URL --broadcast --verifier sourcify --verifier-url https://sourcify.parsec.finance/verify
  * Step 5: forge script script/DeployDotHypeSteps.s.sol:DeployDotHypeSteps --sig "step5(address,address)" $REGISTRY_ADDRESS $METADATA_ADDRESS --rpc-url $RPC_URL --broadcast
- * Step 6: forge script script/DeployDotHypeSteps.s.sol:DeployDotHypeSteps --sig "step6(address,address)" $REGISTRY_ADDRESS $ORACLE_ADDRESS --rpc-url $RPC_URL --broadcast --verifier sourcify --verifier-url https://sourcify.parsec.finance/verify
+ * Step 6: forge script script/DeployDotHypeSteps.s.sol:DeployDotHypeSteps --sig "step6(address,address)" $REGISTRY_ADDRESS $HYPE_ORACLE_ADDRESS --rpc-url $RPC_URL --broadcast --verifier sourcify --verifier-url https://sourcify.parsec.finance/verify
  * Step 7: forge script script/DeployDotHypeSteps.s.sol:DeployDotHypeSteps --sig "step7(address,address)" $REGISTRY_ADDRESS $DUTCH_AUCTION_ADDRESS --rpc-url $RPC_URL --broadcast
  * Step 8: forge script script/DeployDotHypeSteps.s.sol:DeployDotHypeSteps --sig "step8(address)" $DUTCH_AUCTION_ADDRESS --rpc-url $RPC_URL --broadcast
  */
@@ -166,7 +166,7 @@ contract DeployDotHypeSteps is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        DotHypeOnchainMetadata metadata = new DotHypeOnchainMetadata(deployer, registryAddress);
+        DotHypeOnchainMetadataV2 metadata = new DotHypeOnchainMetadataV2(deployer, registryAddress);
         console.log("DotHypeOnchainMetadata deployed at:", address(metadata));
 
         vm.stopBroadcast();
@@ -420,7 +420,7 @@ contract DeployDotHypeSteps is Script {
 
         // Transfer ownership of DotHypeOnchainMetadata
         console.log("Transferring DotHypeOnchainMetadata ownership...");
-        DotHypeOnchainMetadata metadata = DotHypeOnchainMetadata(metadataAddress);
+        DotHypeOnchainMetadataV2 metadata = DotHypeOnchainMetadataV2(metadataAddress);
         metadata.transferOwnership(newOwner);
 
         // Transfer ownership of DotHypeDutchAuction
