@@ -23,6 +23,13 @@ interface IDotHypeRegistry {
     event NameRenewed(uint256 indexed tokenId, uint256 expiry);
 
     /**
+     * @dev Event emitted when the default resolver is changed
+     * @param oldResolver The previous resolver address
+     * @param newResolver The new resolver address
+     */
+    event DefaultResolverChanged(address indexed oldResolver, address indexed newResolver);
+
+    /**
      * @dev Registers a new name
      * @param name The name to register
      * @param owner The address that will own the name
@@ -69,4 +76,11 @@ interface IDotHypeRegistry {
      * @return name The name
      */
     function tokenIdToName(uint256 tokenId) external view returns (string memory name);
+
+    /**
+     * @dev Gets the resolver for a domain (returns default resolver)
+     * @param tokenId The token ID to get resolver for
+     * @return The resolver address
+     */
+    function resolver(uint256 tokenId) external view returns (address);
 }

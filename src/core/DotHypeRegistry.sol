@@ -45,6 +45,9 @@ contract DotHypeRegistry is ERC721, Ownable, IDotHypeRegistry {
     // Metadata provider contract
     IDotHypeMetadata public metadataProvider;
 
+    // Default resolver for all domains
+    address public defaultResolver;
+
     // Constants for namehash calculation
     bytes32 private constant EMPTY_NODE = 0x0000000000000000000000000000000000000000000000000000000000000000;
     bytes32 private constant TLD_NODE = keccak256(abi.encodePacked(EMPTY_NODE, keccak256(abi.encodePacked("hype"))));
@@ -55,6 +58,7 @@ contract DotHypeRegistry is ERC721, Ownable, IDotHypeRegistry {
      * @param _controller Controller address that can register/renew names
      */
     constructor(address _owner, address _controller) ERC721("Hype Naming Service", "HYPE") Ownable(_owner) {
+        require(_controller != address(0), "Controller cannot be zero address");
         controller = _controller;
     }
 
@@ -248,6 +252,7 @@ contract DotHypeRegistry is ERC721, Ownable, IDotHypeRegistry {
      * @param _controller The new controller address
      */
     function setController(address _controller) external onlyOwner {
+        require(_controller != address(0), "Controller cannot be zero address");
         controller = _controller;
     }
 
@@ -257,6 +262,26 @@ contract DotHypeRegistry is ERC721, Ownable, IDotHypeRegistry {
      */
     function setMetadataProvider(address _metadataProvider) external onlyOwner {
         metadataProvider = IDotHypeMetadata(_metadataProvider);
+    }
+
+    /**
+     * @dev Set the default resolver for all domains
+     * @param _resolver The new default resolver address
+     */
+    function setDefaultResolver(address _resolver) external onlyOwner {
+        address oldResolver = defaultResolver;
+        defaultResolver = _resolver;
+        emit DefaultResolverChanged(oldResolver, _resolver);
+    }
+
+    /**
+     * @dev Get the resolver for a domain (returns default resolver)
+     * @param tokenId The token ID to get resolver for
+     * @return The resolver address
+     */
+    function resolver(uint256 tokenId) external view returns (address) {
+        require(_exists(tokenId), TokenNotRegistered(tokenId));
+        return defaultResolver;
     }
 
     /**
