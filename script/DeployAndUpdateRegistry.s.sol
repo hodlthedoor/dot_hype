@@ -5,7 +5,7 @@ import "forge-std/Script.sol";
 import "forge-std/console.sol";
 import "../src/core/DotHypeRegistry.sol";
 import "../src/core/DotHypeResolver.sol";
-import "../src/core/DotHypeOnchainMetadataV2.sol";
+import "../src/core/DotHypeOnchainMetadataV3.sol";
 import "../src/core/DotHypeController.sol";
 
 contract DeployAndUpdateRegistry is Script {
@@ -42,9 +42,9 @@ contract DeployAndUpdateRegistry is Script {
         resolverAddress = address(resolver);
         console.log("   Resolver deployed at:", resolverAddress);
 
-        // 3. Deploy DotHypeOnchainMetadataV2
-        console.log("3. Deploying DotHypeOnchainMetadataV2...");
-        DotHypeOnchainMetadataV2 metadata = new DotHypeOnchainMetadataV2(deployer, registryAddress);
+        // 3. Deploy DotHypeOnchainMetadataV3
+        console.log("3. Deploying DotHypeOnchainMetadataV3...");
+        DotHypeOnchainMetadataV3 metadata = new DotHypeOnchainMetadataV3(deployer, registryAddress);
         metadataAddress = address(metadata);
         console.log("   Metadata deployed at:", metadataAddress);
 

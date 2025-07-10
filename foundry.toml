@@ -21,17 +21,8 @@ hyperliquid-testnet = "https://rpc.hyperliquid-testnet.xyz/evm"
 hyperliquid = "https://rpc.hyperliquid.xyz/evm"
 
 [etherscan]
-hyperliquid = { key = "any", url = "https://sourcify.dev/server" }
-hyperliquid-testnet = { key = "any", url = "https://sourcify.dev/server" }
-
-# Verification settings
-[profile.verify]
-# Default verification provider to use if one is not specified
-default_verification_provider = "sourcify"
-
-# Verification provider common settings
-[profile.verify.sourcify]
-url = "https://sourcify.dev/server"
+hyperliquid = { key = "${ETHERSCAN_API_KEY}", url = "https://api.etherscan.io/v2/api", chainid = 999 }
+hyperliquid-testnet = { key = "${ETHERSCAN_API_KEY}", url = "https://api.etherscan.io/v2/api", chainid = 998 }
 
 [profile.hyperliquid-testnet]
 rpc_url = "${rpc_endpoints.hyperliquid-testnet}"

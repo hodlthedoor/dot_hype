@@ -14,15 +14,11 @@ contract GenerateSVG is Script {
         // Deploy the metadata contract (we don't need a real registry for SVG generation)
         DotHypeOnchainMetadataV3 metadata = new DotHypeOnchainMetadataV3(
             msg.sender, // owner
-            msg.sender  // registry (mock - we won't call registry functions)
+            msg.sender // registry (mock - we won't call registry functions)
         );
 
         // Test domain names
-        string[3] memory testDomains = [
-            "sam",
-            "juicyhamdogs", 
-            "reallyreallyreallyreallyreallyreallylongname"
-        ];
+        string[3] memory testDomains = ["sam", "juicyhamdogs", "reallyreallyreallyreallyreallyreallylongname"];
 
         console.log("Generating SVGs for test domains...\n");
 
@@ -30,9 +26,9 @@ contract GenerateSVG is Script {
         for (uint256 i = 0; i < testDomains.length; i++) {
             string memory domain = testDomains[i];
             console.log("Generating SVG for:", string(abi.encodePacked(domain, ".hype")));
-            
+
             string memory svg = metadata.generateSVG(domain);
-            
+
             // Log the SVG content with a separator for easy extraction
             console.log("=== SVG START ===");
             console.log("FILENAME:", string(abi.encodePacked(domain, ".svg")));
@@ -43,4 +39,4 @@ contract GenerateSVG is Script {
 
         console.log("All SVGs generated successfully!");
     }
-} 
+}

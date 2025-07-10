@@ -142,4 +142,4 @@ contract DotHypeOnchainMetadataV3 is Ownable, IDotHypeMetadata {
             )
         );
     }
-} 
+}

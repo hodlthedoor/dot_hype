@@ -7,7 +7,17 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 import "../interfaces/IDotHypeRegistry.sol";
 import "../interfaces/IDotHypeMetadata.sol";
 
-/**
+/*                                                                                        
+         88                       88        88  8b        d8  88888888ba   88888888888  
+         88                ,d     88        88   Y8,    ,8P   88      "8b  88           
+         88                88     88        88    Y8,  ,8P    88      ,8P  88           
+ ,adPPYb,88   ,adPPYba,  MM88MMM  88aaaaaaaa88     "8aa8"     88aaaaaa8P'  88aaaaa      
+a8"    `Y88  a8"     "8a   88     88""""""""88      `88'      88""""""'    88"""""      
+8b       88  8b       d8   88     88        88       88       88           88           
+"8a,   ,d88  "8a,   ,a8"   88,    88        88       88       88           88           
+ `"8bbdP"Y8   `"YbbdP"'    "Y888  88        88       88       88           88888888888  
+                                                                                                                                                                        
+
  * @title DotHypeRegistry
  * @dev ERC721 token for .hype domain names with registry functionality
  */
@@ -57,7 +67,7 @@ contract DotHypeRegistry is ERC721, Ownable, IDotHypeRegistry {
      * @param _owner Initial owner of the contract
      * @param _controller Controller address that can register/renew names
      */
-    constructor(address _owner, address _controller) ERC721("Hype Naming Service", "HYPE") Ownable(_owner) {
+    constructor(address _owner, address _controller) ERC721("dotHype", "DH") Ownable(_owner) {
         require(_controller != address(0), "Controller cannot be zero address");
         controller = _controller;
     }
