@@ -15,7 +15,7 @@ contract DeployDotHypeMetadataV3 is Script {
     function run() public {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
-        address registryAddress = 0x69ab9d21B250a157B072F7bF162E8ea240CdD5B3;
+        address registryAddress = 0xBf7cE65e6E920052C11690a80EAa3ed2fE752Dd8;
 
         console.log("Deploying DotHypeOnchainMetadataV3 with address:", deployer);
         console.log("Registry address:", registryAddress);

@@ -879,4 +879,49 @@ contract DotHypeControllerTest is Test {
         vm.expectRevert(DotHypeController.PricingNotSet.selector);
         controller.calculatePrice(twoChar, 730 days);
     }
+
+    // Test double renewal - renew for 1 year then renew for another year
+    function testDoubleRenewal() public {
+        // First register a domain using controller
+        string memory name = "double"; // 6 characters, $1 per year (falls into 5+ bucket)
+        address registrant = user;
+        uint256 duration = 365 days;
+
+        // Register through controller
+        (uint256 tokenId, uint256 initialExpiry) = _registerDomain(name, registrant, duration);
+
+        // First renewal - renew for 1 year
+        uint256 firstRenewalDuration = 365 days;
+        uint256 firstRenewalPrice = controller.calculateRenewalPrice(name, firstRenewalDuration);
+
+        address renewer = address(0x4);
+        vm.deal(renewer, firstRenewalPrice);
+        vm.prank(renewer);
+        uint256 firstRenewalExpiry = controller.renew{value: firstRenewalPrice}(tokenId, firstRenewalDuration);
+
+        // Verify first renewal
+        assertEq(registry.ownerOf(tokenId), registrant); // Owner should not change
+        assertEq(firstRenewalExpiry, initialExpiry + firstRenewalDuration);
+        assertEq(registry.expiryOf(tokenId), initialExpiry + firstRenewalDuration);
+
+        // Second renewal - renew for another year
+        uint256 secondRenewalDuration = 365 days;
+        uint256 secondRenewalPrice = controller.calculateRenewalPrice(name, secondRenewalDuration);
+
+        // Verify that renewal prices are the same both times
+        assertEq(firstRenewalPrice, secondRenewalPrice, "Renewal prices should be identical");
+
+        vm.deal(renewer, secondRenewalPrice);
+        vm.prank(renewer);
+        uint256 secondRenewalExpiry = controller.renew{value: secondRenewalPrice}(tokenId, secondRenewalDuration);
+
+        // Verify second renewal
+        assertEq(registry.ownerOf(tokenId), registrant); // Owner should still not change
+        assertEq(secondRenewalExpiry, firstRenewalExpiry + secondRenewalDuration);
+        assertEq(registry.expiryOf(tokenId), firstRenewalExpiry + secondRenewalDuration);
+        
+        // Verify total duration is now 3 years from initial registration
+        assertEq(secondRenewalExpiry, initialExpiry + firstRenewalDuration + secondRenewalDuration);
+        assertEq(registry.expiryOf(tokenId), initialExpiry + 2 * 365 days);
+    }
 }

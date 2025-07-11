@@ -67,7 +67,7 @@ contract DotHypeRegistry is ERC721, Ownable, IDotHypeRegistry {
      * @param _owner Initial owner of the contract
      * @param _controller Controller address that can register/renew names
      */
-    constructor(address _owner, address _controller) ERC721("dotHype", "DH") Ownable(_owner) {
+    constructor(address _owner, address _controller) ERC721("dotHYPE", "DH") Ownable(_owner) {
         require(_controller != address(0), "Controller cannot be zero address");
         controller = _controller;
     }
